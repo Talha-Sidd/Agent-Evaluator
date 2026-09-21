@@ -27,6 +27,14 @@ class RepoPilotDemo:
 
         registry = build_repopilot_registry()
         try:
+            permission = registry.check_permission("repo_search")
+            trace.emit(TraceEvent(
+                run_id=run_id,
+                event_type="permission.checked",
+                tool_name="repo_search",
+                success=permission.allowed,
+                detail=permission.reason,
+            ))
             search_result = registry.execute(
                 "repo_search",
                 {"query": scenario.task, "repository_files": scenario.repository_files},

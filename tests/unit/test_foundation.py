@@ -3,8 +3,15 @@ from pathlib import Path
 from typing import cast
 
 from agent_reliability_lab.agents.repopilot.demo import RepoPilotDemo
-from agent_reliability_lab.domain.models import RiskLevel, RunStatus, Scenario, ToolAction
+from agent_reliability_lab.domain.models import (
+    ApprovalStatus,
+    RiskLevel,
+    RunStatus,
+    Scenario,
+    ToolAction,
+)
 from agent_reliability_lab.platform.evals.starter import StarterEvaluator
+from agent_reliability_lab.platform.permissions.approvals import InMemoryApprovalStore
 from agent_reliability_lab.platform.permissions.policy import DeterministicPermissionPolicy
 from agent_reliability_lab.platform.runner.runner import ScenarioRunner
 from agent_reliability_lab.platform.tools.registry import ToolExecutionError
@@ -29,9 +36,35 @@ def test_runner_normalizes_trace_and_result() -> None:
     assert [event.event_type for event in result.trace] == [
         "run.started",
         "agent.started",
+        "permission.checked",
         "tool.completed",
         "agent.completed",
     ]
+
+
+def test_approval_store_requires_explicit_human_decision() -> None:
+    store = InMemoryApprovalStore()
+    scenario = Scenario(
+        scenario_id="approval-run",
+        task="find timeout",
+        repository_files={"client.py": "timeout"},
+        expected_behavior="find client",
+    )
+    result = ScenarioRunner().run(RepoPilotDemo(), scenario)
+    approval = store.request(
+        run_id=result.run_id,
+        tool_name="edit_file",
+        reason="medium-risk action requires explicit approval",
+    )
+
+    assert result.run_id == approval.run_id
+    assert approval.status is ApprovalStatus.PENDING
+    assert store.get(approval.approval_id) == approval
+
+    approved = store.approve(approval.approval_id)
+
+    assert approved.status is ApprovalStatus.APPROVED
+    assert approved.resolved_at is not None
 
 
 def test_smoke_dataset_is_valid_jsonl() -> None:

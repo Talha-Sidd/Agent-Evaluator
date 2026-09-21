@@ -17,6 +17,14 @@ class ToolExecutionError(RuntimeError):
     """Raised when a tool cannot be executed safely or successfully."""
 
 
+class ApprovalRequired(ToolExecutionError):
+    """Raised when policy requires human approval before tool execution."""
+
+    def __init__(self, decision: PermissionDecision) -> None:
+        super().__init__(decision.reason)
+        self.decision = decision
+
+
 @dataclass(frozen=True)
 class ToolDefinition[InputModel: BaseModel, OutputModel: BaseModel]:
     name: str
@@ -53,6 +61,8 @@ class TypedToolRegistry:
         tool = self.get(name)
         decision = self.check_permission(name)
         if not decision.allowed:
+            if decision.requires_approval:
+                raise ApprovalRequired(decision)
             raise ToolExecutionError(decision.reason)
         try:
             typed_input = tool.input_model.model_validate(arguments)

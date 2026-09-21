@@ -19,6 +19,12 @@ class RiskLevel(StrEnum):
     HIGH = "high"
 
 
+class ApprovalStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class ToolAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -33,6 +39,18 @@ class PermissionDecision(BaseModel):
     allowed: bool
     requires_approval: bool
     reason: str
+
+
+class ApprovalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    approval_id: UUID = Field(default_factory=uuid4)
+    run_id: UUID
+    tool_name: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    status: ApprovalStatus = ApprovalStatus.PENDING
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    resolved_at: datetime | None = None
 
 
 class EvaluationCheck(BaseModel):
@@ -72,6 +90,7 @@ class TraceEvent(BaseModel):
     event_type: str = Field(min_length=1)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     tool_name: str | None = None
+    approval_id: UUID | None = None
     success: bool | None = None
     detail: str | None = None
 
