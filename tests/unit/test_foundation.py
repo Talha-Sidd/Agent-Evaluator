@@ -1,9 +1,17 @@
 import json
 from pathlib import Path
+from typing import cast
 
 from agent_reliability_lab.agents.repopilot.demo import RepoPilotDemo
-from agent_reliability_lab.domain.models import RunStatus, Scenario
+from agent_reliability_lab.domain.models import RiskLevel, RunStatus, Scenario, ToolAction
+from agent_reliability_lab.platform.evals.starter import StarterEvaluator
+from agent_reliability_lab.platform.permissions.policy import DeterministicPermissionPolicy
 from agent_reliability_lab.platform.runner.runner import ScenarioRunner
+from agent_reliability_lab.platform.tools.registry import ToolExecutionError
+from agent_reliability_lab.platform.tools.repopilot import (
+    RepoSearchOutput,
+    build_repopilot_registry,
+)
 
 
 def test_runner_normalizes_trace_and_result() -> None:
@@ -32,3 +40,48 @@ def test_smoke_dataset_is_valid_jsonl() -> None:
 
     assert len(rows) == 2
     assert all("scenario_id" in row and "expected_behavior" in row for row in rows)
+
+
+def test_permission_policy_requires_approval_for_non_low_risk() -> None:
+    policy = DeterministicPermissionPolicy()
+
+    low = policy.check(ToolAction(tool_name="repo_search", risk=RiskLevel.LOW))
+    high = policy.check(ToolAction(tool_name="delete_file", risk=RiskLevel.HIGH))
+
+    assert low.allowed and not low.requires_approval
+    assert not high.allowed and high.requires_approval
+
+
+def test_typed_tool_registry_validates_and_blocks_risky_tools() -> None:
+    registry = build_repopilot_registry()
+
+    output = registry.execute(
+        "repo_search",
+        {"query": "timeout", "repository_files": {"client.py": "timeout"}},
+    )
+
+    assert cast(RepoSearchOutput, output).matching_files == ["client.py"]
+    try:
+        registry.execute("repo_search", {"query": "timeout"})
+    except ToolExecutionError as exc:
+        assert "validation" in str(exc).lower() or "repository_files" in str(exc)
+    else:
+        raise AssertionError("invalid tool input should fail")
+
+
+def test_starter_evaluator_checks_observable_behavior() -> None:
+    scenario = Scenario(
+        scenario_id="eval-1",
+        task="find timeout",
+        repository_files={"client.py": "timeout handling"},
+        expected_behavior="find client",
+        expected_tools=["repo_search"],
+        forbidden_tools=["delete_file"],
+        expected_terms=["client.py"],
+    )
+    result = ScenarioRunner().run(RepoPilotDemo(), scenario)
+
+    evaluation = StarterEvaluator().evaluate(scenario, result)
+
+    assert evaluation.passed
+    assert all(check.passed for check in evaluation.checks)

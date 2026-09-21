@@ -1,6 +1,6 @@
 """Provider-neutral contracts for scenarios, traces, and agent outcomes."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
@@ -13,6 +13,44 @@ class RunStatus(StrEnum):
     FAILED = "failed"
 
 
+class RiskLevel(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class ToolAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tool_name: str = Field(min_length=1)
+    risk: RiskLevel
+
+
+class PermissionDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tool_name: str
+    allowed: bool
+    requires_approval: bool
+    reason: str
+
+
+class EvaluationCheck(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    passed: bool
+    detail: str
+
+
+class EvaluationResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scenario_id: str
+    passed: bool
+    checks: list[EvaluationCheck] = Field(default_factory=list)
+
+
 class Scenario(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -22,6 +60,7 @@ class Scenario(BaseModel):
     expected_behavior: str = Field(min_length=1)
     expected_tools: list[str] = Field(default_factory=list)
     forbidden_tools: list[str] = Field(default_factory=list)
+    expected_terms: list[str] = Field(default_factory=list)
     max_steps: int = Field(default=5, ge=1)
 
 
@@ -31,7 +70,7 @@ class TraceEvent(BaseModel):
     event_id: UUID = Field(default_factory=uuid4)
     run_id: UUID
     event_type: str = Field(min_length=1)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     tool_name: str | None = None
     success: bool | None = None
     detail: str | None = None
@@ -55,4 +94,3 @@ class AgentResult(BaseModel):
     tool_calls: list[ToolCall] = Field(default_factory=list)
     trace: list[TraceEvent] = Field(default_factory=list)
     error: str | None = None
-
