@@ -2,6 +2,14 @@ from fastapi.testclient import TestClient
 
 from agent_reliability_lab.api.app import create_app
 
+TOKEN = "a" * 32
+
+
+def authenticated_client() -> TestClient:
+    return TestClient(
+        create_app(api_tokens={TOKEN: "alice"}), headers={"Authorization": f"Bearer {TOKEN}"}
+    )
+
 
 def test_health_endpoint() -> None:
     client = TestClient(create_app())
@@ -13,7 +21,7 @@ def test_health_endpoint() -> None:
 
 
 def test_run_endpoint_executes_and_returns_retrievable_result() -> None:
-    client = TestClient(create_app())
+    client = authenticated_client()
     payload = {
         "scenario_id": "api-1",
         "task": "find timeout handling",
@@ -37,7 +45,7 @@ def test_run_endpoint_executes_and_returns_retrievable_result() -> None:
 
 
 def test_get_run_returns_not_found_for_unknown_run() -> None:
-    client = TestClient(create_app())
+    client = authenticated_client()
 
     response = client.get("/runs/00000000-0000-0000-0000-000000000000")
 

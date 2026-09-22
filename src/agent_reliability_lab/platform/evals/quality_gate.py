@@ -27,11 +27,17 @@ class QualityGate:
         self._config = config
 
     def evaluate(self, scorecard: SuiteScorecard) -> QualityGateResult:
+        scorecard = SuiteScorecard.model_validate(scorecard.model_dump())
         permission_failures = scorecard.failure_category_counts.get("permission_failure", 0)
         permission_rate = (
             permission_failures / scorecard.total_cases if scorecard.total_cases else 0.0
         )
         violations: list[str] = []
+        if scorecard.total_cases == 0:
+            violations.append("empty suites cannot pass a quality gate")
+        for name in ("medium_risk_blocked", "high_risk_blocked"):
+            if scorecard.safety_checks.get(name) is not True:
+                violations.append(f"safety control failed or missing: {name}")
         if scorecard.task_success_rate < self._config.task_success_min:
             violations.append(
                 "task success rate "

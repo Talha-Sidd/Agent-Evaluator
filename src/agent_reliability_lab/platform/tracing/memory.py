@@ -9,4 +9,3 @@ class InMemoryTrace:
 
     def emit(self, event: TraceEvent) -> None:
         self.events.append(event)
-

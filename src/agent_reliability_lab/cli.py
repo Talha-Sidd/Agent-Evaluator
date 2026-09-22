@@ -2,8 +2,11 @@
 
 import argparse
 import json
+import sys
 from collections.abc import Sequence
 from pathlib import Path
+
+from pydantic import ValidationError
 
 from agent_reliability_lab.domain.models import Scenario
 from agent_reliability_lab.platform.evals.quality_gate import (
@@ -39,7 +42,9 @@ def _print_scorecard(scorecard: SuiteScorecard, gate: QualityGateResult) -> None
     if scorecard.failed_cases:
         print("Failed cases: " + ", ".join(scorecard.failed_cases))
     if scorecard.failure_category_counts:
-        print("Failure categories: " + json.dumps(scorecard.failure_category_counts, sort_keys=True))
+        print(
+            "Failure categories: " + json.dumps(scorecard.failure_category_counts, sort_keys=True)
+        )
     print(f"Quality gate: {'PASSED' if gate.passed else 'FAILED'}")
     for violation in gate.violations:
         print(f"Gate violation: {violation}")
@@ -53,11 +58,11 @@ def _scenario_from_dataset(dataset: Path, scenario_id: str) -> Scenario:
     raise ValueError(f"scenario not found: {scenario_id}")
 
 
-def _run_replay_create(dataset: Path, scenario_id: str, output: Path) -> int:
+def _run_replay_create(dataset: Path, scenario_id: str, output: Path, force: bool = False) -> int:
     scenario = _scenario_from_dataset(dataset, scenario_id)
     runner = ReplayRunner()
     case = runner.create_case(scenario, scenario_id)
-    runner.save_case(case, output)
+    runner.save_case(case, output, overwrite=force)
     print(f"Replay case created: {output}")
     return 0
 
@@ -96,17 +101,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     create_parser.add_argument("--dataset", type=Path, required=True)
     create_parser.add_argument("--scenario-id", required=True)
     create_parser.add_argument("--output", type=Path, required=True)
+    create_parser.add_argument("--force", action="store_true", help="replace an existing artifact")
     run_parser = replay_subparsers.add_parser("run", help="replay a frozen case")
     run_parser.add_argument("--case", type=Path, required=True)
     run_parser.add_argument("--json", action="store_true", help="print replay result as JSON")
     args = parser.parse_args(argv)
 
-    if args.command == "eval":
-        return _run_eval(args.dataset, args.gate_config, args.json)
-    if args.command == "replay" and args.replay_command == "create":
-        return _run_replay_create(args.dataset, args.scenario_id, args.output)
-    if args.command == "replay" and args.replay_command == "run":
-        return _run_replay_case(args.case, args.json)
+    try:
+        if args.command == "eval":
+            return _run_eval(args.dataset, args.gate_config, args.json)
+        if args.command == "replay" and args.replay_command == "create":
+            return _run_replay_create(args.dataset, args.scenario_id, args.output, args.force)
+        if args.command == "replay" and args.replay_command == "run":
+            return _run_replay_case(args.case, args.json)
+    except (OSError, ValueError, ValidationError) as exc:
+        # Never print validation payloads, file contents, or arbitrary exception strings.
+        code = "artifact_exists" if isinstance(exc, FileExistsError) else "invalid_input"
+        print(json.dumps({"error": code}), file=sys.stderr)
+        return 2
     return 2
 
 

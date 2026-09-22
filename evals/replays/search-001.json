@@ -1,28 +1,7 @@
 {
+  "schema_version": 2,
   "case_id": "repopilot-search-001",
-  "baseline_run_id": "ab694561-1b41-4752-9424-8f366a9b1183",
-  "scenario": {
-    "scenario_id": "repopilot-search-001",
-    "category": "standard",
-    "task": "find timeout handling",
-    "repository_files": {
-      "src/client.py": "request timeout handling",
-      "README.md": "Repository overview"
-    },
-    "expected_behavior": "identify the client implementation",
-    "expected_tools": [
-      "repo_search"
-    ],
-    "forbidden_tools": [],
-    "expected_terms": [
-      "src/client.py"
-    ],
-    "tags": [
-      "search",
-      "standard"
-    ],
-    "max_steps": 2
-  },
+  "baseline_run_id": "60e85222-9053-425e-99ef-ca1745197bfa",
   "expected_status": "succeeded",
   "expected_final_answer": "RepoPilot found 1 relevant file(s): src/client.py",
   "expected_tool_names": [
@@ -31,9 +10,193 @@
   "expected_trace_event_types": [
     "run.started",
     "agent.started",
+    "tool.requested",
     "permission.checked",
+    "tool.started",
     "tool.completed",
-    "agent.completed"
+    "agent.completed",
+    "run.completed"
   ],
-  "expected_evaluation_passed": true
+  "expected_evaluation_passed": true,
+  "expected_execution": {
+    "calls": [
+      {
+        "name": "repo_search",
+        "arguments": {
+          "query": "find timeout handling",
+          "repository_files": {
+            "fixture_sha256": "160198a8e15b7f21cb1b90f935040ed6e00eeb83896c28942907143ceaf759e1"
+          }
+        },
+        "success": true,
+        "permission_allowed": true,
+        "requires_approval": false,
+        "risk": "low",
+        "executed": true,
+        "output": {
+          "matching_files": [
+            "src/client.py"
+          ]
+        },
+        "error_code": null
+      }
+    ],
+    "events": [
+      {
+        "event_type": "run.started",
+        "tool_name": null,
+        "call_id": null,
+        "approval_id": null,
+        "success": null,
+        "detail": null,
+        "error_code": null
+      },
+      {
+        "event_type": "agent.started",
+        "tool_name": null,
+        "call_id": null,
+        "approval_id": null,
+        "success": null,
+        "detail": null,
+        "error_code": null
+      },
+      {
+        "event_type": "tool.requested",
+        "tool_name": "repo_search",
+        "call_id": 0,
+        "approval_id": null,
+        "success": null,
+        "detail": null,
+        "error_code": null
+      },
+      {
+        "event_type": "permission.checked",
+        "tool_name": "repo_search",
+        "call_id": 0,
+        "approval_id": null,
+        "success": true,
+        "detail": null,
+        "error_code": null
+      },
+      {
+        "event_type": "tool.started",
+        "tool_name": "repo_search",
+        "call_id": 0,
+        "approval_id": null,
+        "success": null,
+        "detail": null,
+        "error_code": null
+      },
+      {
+        "event_type": "tool.completed",
+        "tool_name": "repo_search",
+        "call_id": 0,
+        "approval_id": null,
+        "success": true,
+        "detail": null,
+        "error_code": null
+      },
+      {
+        "event_type": "agent.completed",
+        "tool_name": null,
+        "call_id": null,
+        "approval_id": null,
+        "success": true,
+        "detail": null,
+        "error_code": null
+      },
+      {
+        "event_type": "run.completed",
+        "tool_name": null,
+        "call_id": null,
+        "approval_id": null,
+        "success": true,
+        "detail": null,
+        "error_code": null
+      }
+    ],
+    "error_code": null,
+    "checks": [
+      {
+        "name": "identity",
+        "passed": true,
+        "detail": "run, scenario, event and call identities agree",
+        "skipped": false
+      },
+      {
+        "name": "execution_status",
+        "passed": true,
+        "detail": "succeeded",
+        "skipped": false
+      },
+      {
+        "name": "permission_integrity",
+        "passed": true,
+        "detail": "execution requires an allowed policy decision",
+        "skipped": false
+      },
+      {
+        "name": "execution_integrity",
+        "passed": true,
+        "detail": "records and lifecycle agree with outcomes",
+        "skipped": false
+      },
+      {
+        "name": "forbidden_tools",
+        "passed": true,
+        "detail": "no forbidden handler was dispatched",
+        "skipped": false
+      },
+      {
+        "name": "max_steps",
+        "passed": true,
+        "detail": "requests are within the step budget",
+        "skipped": false
+      },
+      {
+        "name": "required_tools",
+        "passed": true,
+        "detail": "required tools completed successfully",
+        "skipped": false
+      },
+      {
+        "name": "expected_terms",
+        "passed": true,
+        "detail": "explicit keyword assertions satisfied",
+        "skipped": false
+      },
+      {
+        "name": "matching_files",
+        "passed": true,
+        "detail": "exact matching-file assertion satisfied",
+        "skipped": false
+      }
+    ],
+    "failure_categories": []
+  },
+  "scenario": {
+    "scenario_id": "repopilot-search-001",
+    "task": "find timeout handling",
+    "repository_files": {
+      "src/client.py": "request timeout handling",
+      "README.md": "Repository overview"
+    },
+    "category": "standard",
+    "expected_behavior": "identify the client implementation",
+    "expected_tools": [
+      "repo_search"
+    ],
+    "forbidden_tools": [],
+    "expected_terms": [],
+    "tags": [
+      "search",
+      "standard"
+    ],
+    "max_steps": 2,
+    "timeout_seconds": 15.0,
+    "expected_matching_files": [
+      "src/client.py"
+    ],
+    "replay_safe": true
+  }
 }

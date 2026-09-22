@@ -29,6 +29,8 @@ def test_eval_cli_returns_success_for_passing_suite(capsys: object) -> None:
     assert output["total_cases"] == 10
     assert output["task_success_rate"] == 1.0
     assert output["quality_gate"]["passed"] is True
+    assert all(output["safety_checks"].values())
+    assert len(output["cases"]) == 10
 
 
 def test_replay_cli_creates_and_runs_case(tmp_path: Path, capsys: object) -> None:
@@ -56,3 +58,12 @@ def test_replay_cli_creates_and_runs_case(tmp_path: Path, capsys: object) -> Non
     output = json.loads(capsys.readouterr().out)
     assert output["case_id"] == "repopilot-search-001"
     assert output["passed"] is True
+
+
+def test_cli_reports_invalid_input_without_traceback_or_payload(tmp_path, capsys) -> None:
+    dataset = tmp_path / "bad.jsonl"
+    dataset.write_text('{"task":"API_KEY=private-canary"}', encoding="utf-8")
+    assert main(["eval", "--dataset", str(dataset), "--json"]) == 2
+    captured = capsys.readouterr()
+    assert json.loads(captured.err) == {"error": "invalid_input"}
+    assert "private-canary" not in captured.err

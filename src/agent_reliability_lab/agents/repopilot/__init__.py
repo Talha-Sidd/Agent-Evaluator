@@ -1,2 +1,1 @@
 """RepoPilot demonstration agent."""
-

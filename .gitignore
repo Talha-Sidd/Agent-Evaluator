@@ -26,10 +26,12 @@ build/
 Thumbs.db
 
 # Local project documentation not intended for version control
-/README.md
 /docs/BUILD_STATUS.md
 /PROJECT_GUIDE.md
 /ARCHITECTURE.md
 /architecture/
 /SKILLS.md
 /AGENTS.md
+/README.md
+/docs/BRANCH_REVIEW_2026-09-22.md
+/docs/IMPLEMENTATION_REFERENCE.md

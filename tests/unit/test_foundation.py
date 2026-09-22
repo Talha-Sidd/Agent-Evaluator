@@ -41,9 +41,12 @@ def test_runner_normalizes_trace_and_result() -> None:
     assert [event.event_type for event in result.trace] == [
         "run.started",
         "agent.started",
+        "tool.requested",
         "permission.checked",
+        "tool.started",
         "tool.completed",
         "agent.completed",
+        "run.completed",
     ]
 
 
@@ -102,7 +105,7 @@ def test_typed_tool_registry_validates_and_blocks_risky_tools() -> None:
     try:
         registry.execute("repo_search", {"query": "timeout"})
     except ToolExecutionError as exc:
-        assert "validation" in str(exc).lower() or "repository_files" in str(exc)
+        assert str(exc) == "invalid_tool_arguments"
     else:
         raise AssertionError("invalid tool input should fail")
 
@@ -149,6 +152,7 @@ def test_starter_evaluator_reports_failure_category_and_trace_evidence() -> None
 def test_replay_runner_freezes_and_replays_the_same_observable_behavior() -> None:
     scenario = Scenario(
         scenario_id="replay-1",
+        replay_safe=True,
         task="find timeout",
         repository_files={"client.py": "timeout handling"},
         expected_behavior="identify the client implementation",
@@ -170,6 +174,7 @@ def test_replay_runner_freezes_and_replays_the_same_observable_behavior() -> Non
 def test_replay_case_round_trips_through_json(tmp_path: Path) -> None:
     scenario = Scenario(
         scenario_id="replay-file-1",
+        replay_safe=True,
         task="find timeout",
         repository_files={"client.py": "timeout handling"},
         expected_behavior="identify the client implementation",
