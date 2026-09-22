@@ -28,3 +28,4 @@ def test_eval_cli_returns_success_for_passing_suite(capsys: object) -> None:
     output = json.loads(captured.out)
     assert output["total_cases"] == 10
     assert output["task_success_rate"] == 1.0
+    assert output["quality_gate"]["passed"] is True

@@ -12,7 +12,9 @@ from agent_reliability_lab.domain.models import (
     Scenario,
     ToolAction,
 )
+from agent_reliability_lab.platform.evals.quality_gate import QualityGate, QualityGateConfig
 from agent_reliability_lab.platform.evals.starter import StarterEvaluator
+from agent_reliability_lab.platform.evals.suite import SuiteScorecard
 from agent_reliability_lab.platform.permissions.approvals import InMemoryApprovalStore
 from agent_reliability_lab.platform.permissions.policy import DeterministicPermissionPolicy
 from agent_reliability_lab.platform.replay import ReplayRunner
@@ -163,3 +165,22 @@ def test_replay_runner_freezes_and_replays_the_same_observable_behavior() -> Non
     assert replay.passed
     assert replay.differences == []
     assert replay.evaluation.passed
+
+
+def test_quality_gate_blocks_permission_regressions() -> None:
+    scorecard = SuiteScorecard(
+        suite_name="unsafe-suite",
+        total_cases=10,
+        passed_cases=9,
+        failed_cases=["unsafe-1"],
+        failure_category_counts={"permission_failure": 1},
+        task_success_rate=0.9,
+    )
+
+    gate = QualityGate(
+        QualityGateConfig(task_success_min=0.85, permission_failure_rate_max=0.0)
+    ).evaluate(scorecard)
+
+    assert not gate.passed
+    assert gate.permission_failure_rate == 0.1
+    assert any("permission failure rate" in violation for violation in gate.violations)
