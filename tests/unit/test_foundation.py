@@ -6,6 +6,7 @@ from agent_reliability_lab.agents.repopilot.demo import RepoPilotDemo
 from agent_reliability_lab.domain.models import (
     ApprovalStatus,
     FailureCategory,
+    ReplayCase,
     RiskLevel,
     RunStatus,
     Scenario,
@@ -14,6 +15,7 @@ from agent_reliability_lab.domain.models import (
 from agent_reliability_lab.platform.evals.starter import StarterEvaluator
 from agent_reliability_lab.platform.permissions.approvals import InMemoryApprovalStore
 from agent_reliability_lab.platform.permissions.policy import DeterministicPermissionPolicy
+from agent_reliability_lab.platform.replay import ReplayRunner
 from agent_reliability_lab.platform.runner.runner import ScenarioRunner
 from agent_reliability_lab.platform.tools.registry import ToolExecutionError
 from agent_reliability_lab.platform.tools.repopilot import (
@@ -140,3 +142,24 @@ def test_starter_evaluator_reports_failure_category_and_trace_evidence() -> None
     assert report.category is FailureCategory.RETRIEVAL_FAILURE
     assert report.evidence_event_ids
     assert report.regression_candidate
+
+
+def test_replay_runner_freezes_and_replays_the_same_observable_behavior() -> None:
+    scenario = Scenario(
+        scenario_id="replay-1",
+        task="find timeout",
+        repository_files={"client.py": "timeout handling"},
+        expected_behavior="identify the client implementation",
+        expected_tools=["repo_search"],
+        expected_terms=["client.py"],
+    )
+    result = ScenarioRunner().run(RepoPilotDemo(), scenario)
+    evaluation = StarterEvaluator().evaluate(scenario, result)
+
+    case = ReplayRunner().freeze(scenario, result, evaluation, "replay-case-1")
+    replay = ReplayRunner().replay(case)
+
+    assert isinstance(case, ReplayCase)
+    assert replay.passed
+    assert replay.differences == []
+    assert replay.evaluation.passed

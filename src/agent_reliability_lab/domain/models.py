@@ -93,6 +93,29 @@ class EvaluationResult(BaseModel):
     failure_reports: list[FailureReport] = Field(default_factory=list)
 
 
+class ReplayCase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str = Field(min_length=1)
+    baseline_run_id: UUID
+    scenario: "Scenario"
+    expected_status: RunStatus
+    expected_final_answer: str
+    expected_tool_names: list[str] = Field(default_factory=list)
+    expected_trace_event_types: list[str] = Field(default_factory=list)
+    expected_evaluation_passed: bool
+
+
+class ReplayResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    replay_run_id: UUID
+    passed: bool
+    differences: list[str] = Field(default_factory=list)
+    evaluation: EvaluationResult
+
+
 class Scenario(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
