@@ -4,6 +4,8 @@ from agent_reliability_lab.domain.models import (
     AgentResult,
     EvaluationCheck,
     EvaluationResult,
+    FailureCategory,
+    FailureReport,
     RunStatus,
     Scenario,
 )
@@ -18,11 +20,63 @@ class StarterEvaluator:
             self._max_steps(scenario, result),
             self._expected_terms(scenario, result),
         ]
+        failure_reports = self._failure_reports(checks, result)
         return EvaluationResult(
             scenario_id=scenario.scenario_id,
             passed=all(check.passed for check in checks),
             checks=checks,
+            failure_reports=failure_reports,
         )
+
+    def _failure_reports(
+        self, checks: list[EvaluationCheck], result: AgentResult
+    ) -> list[FailureReport]:
+        categories = {
+            "execution_status": (
+                FailureCategory.ENVIRONMENT_FAILURE,
+                "inspect the run error and tool failure before changing the agent",
+                ("tool.failed", "agent.completed"),
+            ),
+            "required_tools": (
+                FailureCategory.TOOL_SELECTION_FAILURE,
+                "review the agent tool-selection path and expected tool contract",
+                ("tool.completed", "tool.failed"),
+            ),
+            "forbidden_tools": (
+                FailureCategory.PERMISSION_FAILURE,
+                "tighten the permission policy or remove the forbidden action path",
+                ("permission.checked", "tool.completed", "tool.failed"),
+            ),
+            "max_steps": (
+                FailureCategory.LOOP_BUDGET_FAILURE,
+                "bound the agent loop and reduce repeated or unnecessary tool calls",
+                ("tool.completed", "tool.failed"),
+            ),
+            "expected_terms": (
+                FailureCategory.RETRIEVAL_FAILURE,
+                "inspect retrieved files and evidence before changing the answer",
+                ("tool.completed", "agent.completed"),
+            ),
+        }
+        reports: list[FailureReport] = []
+        for check in checks:
+            if check.passed:
+                continue
+            category, likely_fix, event_types = categories[check.name]
+            evidence = [
+                event.event_id for event in result.trace if event.event_type in event_types
+            ]
+            if not evidence:
+                evidence = [event.event_id for event in result.trace]
+            reports.append(
+                FailureReport(
+                    category=category,
+                    evidence_event_ids=evidence,
+                    confidence=0.95,
+                    likely_fix=likely_fix,
+                )
+            )
+        return reports
 
     def _execution_status(self, result: AgentResult) -> EvaluationCheck:
         passed = result.status is RunStatus.SUCCEEDED

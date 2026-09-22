@@ -25,6 +25,19 @@ class ApprovalStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class FailureCategory(StrEnum):
+    CONTEXT_FAILURE = "context_failure"
+    TOOL_SELECTION_FAILURE = "tool_selection_failure"
+    TOOL_ARGUMENT_FAILURE = "tool_argument_failure"
+    RETRIEVAL_FAILURE = "retrieval_failure"
+    REASONING_PLANNING_FAILURE = "reasoning_planning_failure"
+    LOOP_BUDGET_FAILURE = "loop_budget_failure"
+    PERMISSION_FAILURE = "permission_failure"
+    ENVIRONMENT_FAILURE = "environment_failure"
+    RECOVERY_CHECKPOINT_FAILURE = "recovery_checkpoint_failure"
+    GRADER_EVALUATION_FAILURE = "grader_evaluation_failure"
+
+
 class ToolAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -61,12 +74,23 @@ class EvaluationCheck(BaseModel):
     detail: str
 
 
+class FailureReport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    category: FailureCategory
+    evidence_event_ids: list[UUID] = Field(default_factory=list)
+    confidence: float = Field(ge=0.0, le=1.0)
+    likely_fix: str = Field(min_length=1)
+    regression_candidate: bool = True
+
+
 class EvaluationResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     scenario_id: str
     passed: bool
     checks: list[EvaluationCheck] = Field(default_factory=list)
+    failure_reports: list[FailureReport] = Field(default_factory=list)
 
 
 class Scenario(BaseModel):

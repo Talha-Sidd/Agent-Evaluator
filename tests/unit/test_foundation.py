@@ -5,6 +5,7 @@ from typing import cast
 from agent_reliability_lab.agents.repopilot.demo import RepoPilotDemo
 from agent_reliability_lab.domain.models import (
     ApprovalStatus,
+    FailureCategory,
     RiskLevel,
     RunStatus,
     Scenario,
@@ -118,3 +119,24 @@ def test_starter_evaluator_checks_observable_behavior() -> None:
 
     assert evaluation.passed
     assert all(check.passed for check in evaluation.checks)
+
+
+def test_starter_evaluator_reports_failure_category_and_trace_evidence() -> None:
+    scenario = Scenario(
+        scenario_id="eval-failure-1",
+        task="find missing implementation",
+        repository_files={"client.py": "request handling"},
+        expected_behavior="identify the missing implementation",
+        expected_tools=["repo_search"],
+        expected_terms=["missing.py"],
+    )
+    result = ScenarioRunner().run(RepoPilotDemo(), scenario)
+
+    evaluation = StarterEvaluator().evaluate(scenario, result)
+
+    assert not evaluation.passed
+    assert len(evaluation.failure_reports) == 1
+    report = evaluation.failure_reports[0]
+    assert report.category is FailureCategory.RETRIEVAL_FAILURE
+    assert report.evidence_event_ids
+    assert report.regression_candidate

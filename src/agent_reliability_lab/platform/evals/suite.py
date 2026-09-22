@@ -18,6 +18,7 @@ class SuiteScorecard(BaseModel):
     total_cases: int = Field(ge=0)
     passed_cases: int = Field(ge=0)
     failed_cases: list[str] = Field(default_factory=list)
+    failure_category_counts: dict[str, int] = Field(default_factory=dict)
     task_success_rate: float = Field(ge=0.0, le=1.0)
 
 
@@ -52,6 +53,11 @@ class EvaluationSuite:
         failed_cases = [
             evaluation.scenario_id for evaluation in evaluations if not evaluation.passed
         ]
+        failure_category_counts: dict[str, int] = {}
+        for evaluation in evaluations:
+            for report in evaluation.failure_reports:
+                category = report.category.value
+                failure_category_counts[category] = failure_category_counts.get(category, 0) + 1
         total_cases = len(evaluations)
         success_rate = passed_cases / total_cases if total_cases else 0.0
         return SuiteScorecard(
@@ -59,5 +65,6 @@ class EvaluationSuite:
             total_cases=total_cases,
             passed_cases=passed_cases,
             failed_cases=failed_cases,
+            failure_category_counts=failure_category_counts,
             task_success_rate=success_rate,
         )

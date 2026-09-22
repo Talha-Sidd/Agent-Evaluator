@@ -16,6 +16,7 @@ def test_evaluation_suite_runs_all_golden_cases() -> None:
     assert scorecard.total_cases == 10
     assert scorecard.passed_cases == 10
     assert scorecard.failed_cases == []
+    assert scorecard.failure_category_counts == {}
     assert scorecard.task_success_rate == 1.0
 
 

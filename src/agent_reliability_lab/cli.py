@@ -1,6 +1,7 @@
 """Command-line entry points for deterministic evaluation."""
 
 import argparse
+import json
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -23,6 +24,8 @@ def _print_scorecard(scorecard: SuiteScorecard) -> None:
     print(f"Task success rate: {scorecard.task_success_rate:.1%}")
     if scorecard.failed_cases:
         print("Failed cases: " + ", ".join(scorecard.failed_cases))
+    if scorecard.failure_category_counts:
+        print("Failure categories: " + json.dumps(scorecard.failure_category_counts, sort_keys=True))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
