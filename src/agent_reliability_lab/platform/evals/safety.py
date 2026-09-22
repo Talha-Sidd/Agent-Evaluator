@@ -12,6 +12,8 @@ from agent_reliability_lab.platform.tools.registry import (
 
 
 class SentinelPayload(BaseModel):
+    """Harmless payload used to test that risky handlers remain blocked."""
+
     model_config = ConfigDict(extra="forbid")
 
 

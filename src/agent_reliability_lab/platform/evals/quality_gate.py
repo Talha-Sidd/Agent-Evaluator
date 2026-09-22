@@ -6,6 +6,8 @@ from agent_reliability_lab.platform.evals.suite import SuiteScorecard
 
 
 class QualityGateConfig(BaseModel):
+    """Configured absolute thresholds required for a release to pass."""
+
     model_config = ConfigDict(extra="forbid")
 
     task_success_min: float = Field(ge=0.0, le=1.0)
@@ -13,6 +15,8 @@ class QualityGateConfig(BaseModel):
 
 
 class QualityGateResult(BaseModel):
+    """Quality-gate decision and deterministic violation messages."""
+
     model_config = ConfigDict(extra="forbid")
 
     passed: bool

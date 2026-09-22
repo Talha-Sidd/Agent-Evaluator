@@ -8,6 +8,8 @@ from agent_reliability_lab.platform.tools.repopilot import RepoSearchOutput
 
 
 class RepoPilotDemo:
+    """Deterministic repository-search agent that uses only harness-mediated tools."""
+
     name = "repopilot-demo"
 
     def run(self, task: AgentTask, run_id: UUID, tools: ToolExecutor) -> AgentResult:

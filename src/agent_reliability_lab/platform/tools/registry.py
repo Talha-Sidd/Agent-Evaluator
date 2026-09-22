@@ -23,12 +23,16 @@ __all__ = ["ApprovalRequired", "ToolDefinition", "ToolExecutionError", "TypedToo
 
 
 class ApprovalRequired(ToolExecutionError):
+    """Typed failure raised when policy requires explicit approval."""
+
     def __init__(self, decision: PermissionDecision) -> None:
         super().__init__(ErrorCode.APPROVAL_REQUIRED)
         self.decision = decision
 
 
 class DispatchObserver(Protocol):
+    """Callbacks used to record validated, authorized, and started dispatches."""
+
     def validated(self, arguments: dict[str, Any]) -> None: ...
     def permission(self, decision: PermissionDecision, risk: RiskLevel) -> None: ...
     def started(self) -> None: ...
@@ -36,6 +40,8 @@ class DispatchObserver(Protocol):
 
 @dataclass(frozen=True)
 class ToolDefinition[InputModel: BaseModel, OutputModel: BaseModel]:
+    """Immutable typed registration for a tool handler and execution budget."""
+
     name: str
     risk: RiskLevel
     input_model: type[InputModel]
@@ -76,6 +82,8 @@ def _tool_worker(
 
 
 class TypedToolRegistry:
+    """Validate, authorize, supervise, and validate the output of tool calls."""
+
     def __init__(self, permission_policy: DeterministicPermissionPolicy) -> None:
         self._permission_policy = permission_policy
         self._tools: dict[str, ToolDefinition[Any, Any]] = {}

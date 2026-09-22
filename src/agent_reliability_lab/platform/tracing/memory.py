@@ -4,6 +4,8 @@ from agent_reliability_lab.domain.models import TraceEvent
 
 
 class InMemoryTrace:
+    """Short-lived trace sink that stores normalized events in process memory."""
+
     def __init__(self) -> None:
         self.events: list[TraceEvent] = []
 

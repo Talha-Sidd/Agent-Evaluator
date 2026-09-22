@@ -12,6 +12,8 @@ FileText = Annotated[str, StringConstraints(max_length=262144)]
 
 
 class ErrorCode(StrEnum):
+    """Stable machine-readable reasons for failed or blocked operations."""
+
     INVALID_INPUT = "invalid_input"
     INVALID_TOOL_ARGUMENTS = "invalid_tool_arguments"
     INVALID_TOOL_OUTPUT = "invalid_tool_output"
@@ -26,23 +28,31 @@ class ErrorCode(StrEnum):
 
 
 class RunStatus(StrEnum):
+    """Terminal status of a scenario execution."""
+
     SUCCEEDED = "succeeded"
     FAILED = "failed"
 
 
 class RiskLevel(StrEnum):
+    """Risk classification used by the permission policy."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
 
 
 class ApprovalStatus(StrEnum):
+    """Pending or terminal state vocabulary for approval workflows."""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
 
 
 class FailureCategory(StrEnum):
+    """Deterministic categories used to classify evaluation failures."""
+
     CONTEXT_FAILURE = "context_failure"
     TOOL_SELECTION_FAILURE = "tool_selection_failure"
     TOOL_ARGUMENT_FAILURE = "tool_argument_failure"
@@ -57,6 +67,8 @@ class FailureCategory(StrEnum):
 
 
 class ToolAction(BaseModel):
+    """Policy input identifying a tool and its risk level."""
+
     model_config = ConfigDict(extra="forbid")
 
     tool_name: str = Field(min_length=1)
@@ -64,6 +76,8 @@ class ToolAction(BaseModel):
 
 
 class PermissionDecision(BaseModel):
+    """Policy output describing automatic access and approval requirements."""
+
     model_config = ConfigDict(extra="forbid")
 
     tool_name: str
@@ -73,6 +87,8 @@ class PermissionDecision(BaseModel):
 
 
 class ApprovalRequest(BaseModel):
+    """Immutable pending approval request; terminal decisions use `ApprovalResolution`."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     approval_id: UUID = Field(default_factory=uuid4)
@@ -93,6 +109,8 @@ class ApprovalResolution(BaseModel):
 
 
 class EvaluationCheck(BaseModel):
+    """One deterministic assertion made during evaluation."""
+
     model_config = ConfigDict(extra="forbid")
 
     name: str
@@ -102,6 +120,8 @@ class EvaluationCheck(BaseModel):
 
 
 class FailureReport(BaseModel):
+    """Evidence-linked explanation and repair guidance for a failed check."""
+
     model_config = ConfigDict(extra="forbid")
 
     category: FailureCategory
@@ -112,6 +132,8 @@ class FailureReport(BaseModel):
 
 
 class EvaluationResult(BaseModel):
+    """Complete deterministic evaluation for one scenario run."""
+
     model_config = ConfigDict(extra="forbid")
 
     scenario_id: str
@@ -121,6 +143,8 @@ class EvaluationResult(BaseModel):
 
 
 class ReplayCase(BaseModel):
+    """Versioned frozen baseline used to compare future executions."""
+
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal[2]
@@ -136,6 +160,8 @@ class ReplayCase(BaseModel):
 
 
 class ReplayResult(BaseModel):
+    """Outcome and evidence differences produced by replaying a case."""
+
     model_config = ConfigDict(extra="forbid")
 
     case_id: str
@@ -167,6 +193,8 @@ class AgentTask(BaseModel):
 
 
 class Scenario(AgentTask):
+    """Full evaluation case containing task input, grader expectations, and limits."""
+
     category: str = Field(default="standard", min_length=1)
     expected_behavior: str = Field(min_length=1)
     expected_tools: list[str] = Field(default_factory=list)
@@ -187,6 +215,8 @@ class Scenario(AgentTask):
 
 
 class TraceEvent(BaseModel):
+    """Normalized lifecycle, permission, tool, or terminal event."""
+
     model_config = ConfigDict(extra="forbid")
 
     event_id: UUID = Field(default_factory=uuid4)
@@ -202,6 +232,8 @@ class TraceEvent(BaseModel):
 
 
 class ToolCall(BaseModel):
+    """Harness-owned record of one requested and possibly executed tool call."""
+
     model_config = ConfigDict(extra="forbid")
 
     name: str
@@ -219,6 +251,8 @@ class ToolCall(BaseModel):
 
 
 class AgentResult(BaseModel):
+    """Normalized result returned by the scenario runner."""
+
     model_config = ConfigDict(extra="forbid")
 
     run_id: UUID

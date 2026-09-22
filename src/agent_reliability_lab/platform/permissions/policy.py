@@ -4,7 +4,7 @@ from agent_reliability_lab.domain.models import PermissionDecision, RiskLevel, T
 
 
 class DeterministicPermissionPolicy:
-    """Allow low-risk actions, require approval for medium/high-risk actions."""
+    """Pure policy that allows low-risk tools and blocks riskier tools pending approval."""
 
     def check(self, action: ToolAction) -> PermissionDecision:
         if action.risk is RiskLevel.LOW:

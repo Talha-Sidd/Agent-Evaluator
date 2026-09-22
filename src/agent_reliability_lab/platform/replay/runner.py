@@ -53,6 +53,8 @@ def normalize_execution(result: AgentResult, evaluation: EvaluationResult) -> di
 
 
 class ReplayRunner:
+    """Freeze safe baselines and compare normalized evidence from later runs."""
+
     def __init__(
         self, agent: AgentAdapter | None = None, runner: ScenarioRunner | None = None
     ) -> None:

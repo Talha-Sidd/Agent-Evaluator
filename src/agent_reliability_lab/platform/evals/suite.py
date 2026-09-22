@@ -21,11 +21,15 @@ from agent_reliability_lab.platform.runner.runner import ScenarioRunner
 
 
 class CaseReport(BaseModel):
+    """Retained result and evaluation evidence for one suite scenario."""
+
     result: AgentResult
     evaluation: EvaluationResult
 
 
 class SuiteScorecard(BaseModel):
+    """Aggregate suite outcome with consistency checks and safety controls."""
+
     model_config = ConfigDict(extra="forbid")
 
     suite_name: str

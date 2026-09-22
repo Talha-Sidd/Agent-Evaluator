@@ -10,6 +10,8 @@ from agent_reliability_lab.platform.tools.registry import ToolDefinition, TypedT
 
 
 class RepoSearchInput(BaseModel):
+    """Strict bounded input contract for repository text search."""
+
     model_config = ConfigDict(extra="forbid", revalidate_instances="always")
     query: str = Field(min_length=1, max_length=4096)
     repository_files: dict[PathText, FileText] = Field(max_length=128)
@@ -21,6 +23,8 @@ class RepoSearchInput(BaseModel):
 
 
 class RepoSearchOutput(BaseModel):
+    """Validated list of repository paths matching a search query."""
+
     model_config = ConfigDict(extra="forbid", revalidate_instances="always")
     matching_files: list[PathText] = Field(max_length=128)
 

@@ -24,6 +24,8 @@ from agent_reliability_lab.platform.security import public_result
 
 
 class BodyLimitMiddleware:
+    """Reject oversized or slow request bodies before application processing."""
+
     def __init__(self, app: ASGIApp, limit: int = 2 * 1024 * 1024) -> None:
         self.app, self.limit = app, limit
 
@@ -78,6 +80,8 @@ class BodyLimitMiddleware:
 
 
 class RunService:
+    """Own authenticated run execution, bounded retention, expiry, and concurrency."""
+
     def __init__(
         self,
         *,

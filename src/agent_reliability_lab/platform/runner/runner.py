@@ -32,6 +32,8 @@ from agent_reliability_lab.platform.workers import (
 
 
 class ToolRequest(BaseModel):
+    """Strict IPC message sent by an agent worker to request one tool call."""
+
     model_config = ConfigDict(extra="forbid")
     kind: Literal["tool"]
     name: str = Field(min_length=1, max_length=128)
@@ -39,6 +41,8 @@ class ToolRequest(BaseModel):
 
 
 class RemoteTools:
+    """Agent-side proxy that forwards tool requests to the parent runner."""
+
     def __init__(self, connection: Connection) -> None:
         self._connection = connection
 
@@ -71,6 +75,8 @@ def _agent_worker(
 
 
 class CallObserver:
+    """Translate registry callbacks into harness-owned records and trace events."""
+
     def __init__(self, run_id: UUID, call: ToolCall, events: list[TraceEvent]) -> None:
         self.run_id, self.call, self.events = run_id, call, events
 
@@ -107,6 +113,8 @@ class CallObserver:
 
 
 class ScenarioRunner:
+    """Own run identity, budgets, worker lifecycles, permissions, and terminal events."""
+
     def __init__(self, registry: TypedToolRegistry | None = None) -> None:
         self._registry = registry or build_repopilot_registry()
 

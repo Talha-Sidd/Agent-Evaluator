@@ -29,6 +29,8 @@ def check(name: str, passed: bool, detail: str, *, skipped: bool = False) -> Eva
 
 
 class StarterEvaluator:
+    """Evaluate harness-owned identities, permissions, execution, budgets, and outputs."""
+
     def evaluate(self, scenario: Scenario, result: AgentResult) -> EvaluationResult:
         succeeded = result.status is RunStatus.SUCCEEDED
         calls = result.tool_calls
