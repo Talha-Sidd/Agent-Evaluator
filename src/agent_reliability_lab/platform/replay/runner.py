@@ -1,5 +1,7 @@
 """Freeze and replay deterministic runs for regression testing."""
 
+from pathlib import Path
+
 from agent_reliability_lab.agents.repopilot.demo import RepoPilotDemo
 from agent_reliability_lab.domain.models import (
     AgentResult,
@@ -37,6 +39,20 @@ class ReplayRunner:
             expected_trace_event_types=[event.event_type for event in result.trace],
             expected_evaluation_passed=evaluation.passed,
         )
+
+    def create_case(self, scenario: Scenario, case_id: str) -> ReplayCase:
+        """Run a scenario once and freeze its observable baseline."""
+
+        result = self._runner.run(self._agent, scenario)
+        evaluation = self._evaluator.evaluate(scenario, result)
+        return self.freeze(scenario, result, evaluation, case_id)
+
+    def save_case(self, case: ReplayCase, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(case.model_dump_json(indent=2), encoding="utf-8")
+
+    def load_case(self, path: Path) -> ReplayCase:
+        return ReplayCase.model_validate_json(path.read_text(encoding="utf-8"))
 
     def replay(self, case: ReplayCase) -> ReplayResult:
         result = self._runner.run(self._agent, case.scenario)

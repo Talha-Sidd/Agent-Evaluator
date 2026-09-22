@@ -1,0 +1,39 @@
+{
+  "case_id": "repopilot-search-001",
+  "baseline_run_id": "ab694561-1b41-4752-9424-8f366a9b1183",
+  "scenario": {
+    "scenario_id": "repopilot-search-001",
+    "category": "standard",
+    "task": "find timeout handling",
+    "repository_files": {
+      "src/client.py": "request timeout handling",
+      "README.md": "Repository overview"
+    },
+    "expected_behavior": "identify the client implementation",
+    "expected_tools": [
+      "repo_search"
+    ],
+    "forbidden_tools": [],
+    "expected_terms": [
+      "src/client.py"
+    ],
+    "tags": [
+      "search",
+      "standard"
+    ],
+    "max_steps": 2
+  },
+  "expected_status": "succeeded",
+  "expected_final_answer": "RepoPilot found 1 relevant file(s): src/client.py",
+  "expected_tool_names": [
+    "repo_search"
+  ],
+  "expected_trace_event_types": [
+    "run.started",
+    "agent.started",
+    "permission.checked",
+    "tool.completed",
+    "agent.completed"
+  ],
+  "expected_evaluation_passed": true
+}

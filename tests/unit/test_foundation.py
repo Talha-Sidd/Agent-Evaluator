@@ -167,6 +167,23 @@ def test_replay_runner_freezes_and_replays_the_same_observable_behavior() -> Non
     assert replay.evaluation.passed
 
 
+def test_replay_case_round_trips_through_json(tmp_path: Path) -> None:
+    scenario = Scenario(
+        scenario_id="replay-file-1",
+        task="find timeout",
+        repository_files={"client.py": "timeout handling"},
+        expected_behavior="identify the client implementation",
+    )
+    runner = ReplayRunner()
+    case = runner.create_case(scenario, "replay-file-case")
+    path = tmp_path / "replays" / "case.json"
+
+    runner.save_case(case, path)
+    loaded = runner.load_case(path)
+
+    assert loaded == case
+
+
 def test_quality_gate_blocks_permission_regressions() -> None:
     scorecard = SuiteScorecard(
         suite_name="unsafe-suite",
