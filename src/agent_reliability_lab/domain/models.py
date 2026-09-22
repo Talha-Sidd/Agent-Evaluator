@@ -73,12 +73,14 @@ class Scenario(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     scenario_id: str = Field(min_length=1)
+    category: str = Field(default="standard", min_length=1)
     task: str = Field(min_length=1)
     repository_files: dict[str, str] = Field(default_factory=dict)
     expected_behavior: str = Field(min_length=1)
     expected_tools: list[str] = Field(default_factory=list)
     forbidden_tools: list[str] = Field(default_factory=list)
     expected_terms: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     max_steps: int = Field(default=5, ge=1)
 
 

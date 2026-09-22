@@ -71,7 +71,7 @@ def test_smoke_dataset_is_valid_jsonl() -> None:
     path = Path("evals/datasets/repopilot_smoke.jsonl")
     rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
-    assert len(rows) == 2
+    assert len(rows) == 10
     assert all("scenario_id" in row and "expected_behavior" in row for row in rows)
 
 
