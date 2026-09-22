@@ -30,8 +30,12 @@ def test_returned_approval_cannot_change_store_state() -> None:
     store = InMemoryApprovalStore()
     record = store.request(uuid4(), "edit_file", "human decision needed")
     with pytest.raises(ValidationError):
-        record.status = ApprovalStatus.APPROVED
-    assert store.get(record.approval_id).status is ApprovalStatus.PENDING
+        record.reason = "changed"
+    resolution = store.approve(record.approval_id)
+    with pytest.raises(ValidationError):
+        resolution.status = ApprovalStatus.REJECTED
+    assert store.get(record.approval_id) == record
+    assert store.get_resolution(record.approval_id) == resolution
 
 
 def test_mutated_output_is_revalidated() -> None:

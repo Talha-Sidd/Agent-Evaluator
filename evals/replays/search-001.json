@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "case_id": "repopilot-search-001",
-  "baseline_run_id": "60e85222-9053-425e-99ef-ca1745197bfa",
+  "baseline_run_id": "27c72827-2756-4f97-b8ae-b075c23baf1b",
   "expected_status": "succeeded",
   "expected_final_answer": "RepoPilot found 1 relevant file(s): src/client.py",
   "expected_tool_names": [
@@ -28,6 +28,7 @@
             "fixture_sha256": "160198a8e15b7f21cb1b90f935040ed6e00eeb83896c28942907143ceaf759e1"
           }
         },
+        "arguments_sha256": "39313e14c8f970c0c5d8dfcbf8be816b0c429ad9c90bd0e7fcd1c907d8b6823a",
         "success": true,
         "permission_allowed": true,
         "requires_approval": false,
@@ -38,6 +39,7 @@
             "src/client.py"
           ]
         },
+        "output_sha256": "6d1979d6994489cbe868d47ecf07d266269340222942ac7170e831062dfdc737",
         "error_code": null
       }
     ],

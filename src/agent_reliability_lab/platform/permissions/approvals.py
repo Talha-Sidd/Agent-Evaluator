@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from threading import RLock
 from uuid import UUID
 
-from agent_reliability_lab.domain.models import ApprovalRequest, ApprovalStatus
+from agent_reliability_lab.domain.models import ApprovalRequest, ApprovalResolution, ApprovalStatus
 
 
 class InMemoryApprovalStore:
@@ -12,6 +12,7 @@ class InMemoryApprovalStore:
 
     def __init__(self) -> None:
         self._requests: dict[UUID, ApprovalRequest] = {}
+        self._resolutions: dict[UUID, ApprovalResolution] = {}
         self._lock = RLock()
 
     def request(self, run_id: UUID, tool_name: str, reason: str) -> ApprovalRequest:
@@ -24,22 +25,32 @@ class InMemoryApprovalStore:
         with self._lock:
             return self._requests.get(approval_id)
 
-    def approve(self, approval_id: UUID) -> ApprovalRequest:
+    def get_resolution(self, approval_id: UUID) -> ApprovalResolution | None:
+        with self._lock:
+            return self._resolutions.get(approval_id)
+
+    def approve(self, approval_id: UUID) -> ApprovalResolution:
         return self._resolve(approval_id, ApprovalStatus.APPROVED)
 
-    def reject(self, approval_id: UUID) -> ApprovalRequest:
+    def reject(self, approval_id: UUID) -> ApprovalResolution:
         return self._resolve(approval_id, ApprovalStatus.REJECTED)
 
-    def _resolve(self, approval_id: UUID, status: ApprovalStatus) -> ApprovalRequest:
+    def _resolve(self, approval_id: UUID, status: ApprovalStatus) -> ApprovalResolution:
         with self._lock:
             return self._resolve_locked(approval_id, status)
 
-    def _resolve_locked(self, approval_id: UUID, status: ApprovalStatus) -> ApprovalRequest:
+    def _resolve_locked(self, approval_id: UUID, status: ApprovalStatus) -> ApprovalResolution:
         approval = self._requests.get(approval_id)
         if approval is None:
             raise KeyError(f"approval not found: {approval_id}")
-        if approval.status is not ApprovalStatus.PENDING:
-            raise ValueError(f"approval is already {approval.status.value}")
-        resolved = approval.model_copy(update={"status": status, "resolved_at": datetime.now(UTC)})
-        self._requests[approval_id] = resolved
+        if approval_id in self._resolutions:
+            raise ValueError("approval is already resolved")
+        if status is ApprovalStatus.PENDING:
+            raise ValueError("approval resolution must be terminal")
+        resolved = ApprovalResolution(
+            approval_id=approval_id,
+            status=status,
+            resolved_at=datetime.now(UTC),
+        )
+        self._resolutions[approval_id] = resolved
         return resolved

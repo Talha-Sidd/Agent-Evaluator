@@ -172,7 +172,7 @@ def test_approval_resolution_is_atomic() -> None:
     with ThreadPoolExecutor(max_workers=2) as executor:
         outcomes = list(executor.map(resolve, [ApprovalStatus.APPROVED, ApprovalStatus.REJECTED]))
     assert outcomes.count(True) == 1
-    assert store.get(approval.approval_id).resolved_at is not None
+    assert store.get_resolution(approval.approval_id).resolved_at is not None
 
 
 def test_duplicate_and_empty_suites_rejected(scenario) -> None:

@@ -4,6 +4,7 @@ from typing import cast
 
 from agent_reliability_lab.agents.repopilot.demo import RepoPilotDemo
 from agent_reliability_lab.domain.models import (
+    ApprovalResolution,
     ApprovalStatus,
     FailureCategory,
     ReplayCase,
@@ -66,13 +67,15 @@ def test_approval_store_requires_explicit_human_decision() -> None:
     )
 
     assert result.run_id == approval.run_id
-    assert approval.status is ApprovalStatus.PENDING
     assert store.get(approval.approval_id) == approval
 
     approved = store.approve(approval.approval_id)
 
+    assert isinstance(approved, ApprovalResolution)
+    assert approved.approval_id == approval.approval_id
     assert approved.status is ApprovalStatus.APPROVED
     assert approved.resolved_at is not None
+    assert store.get_resolution(approval.approval_id) == approved
 
 
 def test_smoke_dataset_is_valid_jsonl() -> None:

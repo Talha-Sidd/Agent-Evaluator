@@ -79,9 +79,17 @@ class ApprovalRequest(BaseModel):
     run_id: UUID
     tool_name: str = Field(min_length=1)
     reason: str = Field(min_length=1)
-    status: ApprovalStatus = ApprovalStatus.PENDING
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    resolved_at: datetime | None = None
+
+
+class ApprovalResolution(BaseModel):
+    """Immutable terminal decision for an approval request."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    approval_id: UUID
+    status: Literal[ApprovalStatus.APPROVED, ApprovalStatus.REJECTED]
+    resolved_at: datetime
 
 
 class EvaluationCheck(BaseModel):
