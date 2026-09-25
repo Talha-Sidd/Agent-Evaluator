@@ -12,6 +12,7 @@ htmlcov/
 .uv-cache/
 dist/
 build/
+reports/
 *.egg-info/
 
 # Local configuration and secrets
@@ -25,13 +26,18 @@ build/
 .DS_Store
 Thumbs.db
 
-# Local project documentation not intended for version control
-/docs/BUILD_STATUS.md
-/PROJECT_GUIDE.md
-/ARCHITECTURE.md
+# Local instructions and generated diagrams
 /architecture/
 /SKILLS.md
 /AGENTS.md
-/README.md
 /docs/BRANCH_REVIEW_2026-09-22.md
+/skills-lock.json
+/PROJECT_GUIDE.md
+/ARCHITECTURE.md
+/README.md
+/docs/BUILD_STATUS.md
 /docs/IMPLEMENTATION_REFERENCE.md
+/docs/TODO.md
+
+# Agents skills
+/.agents/

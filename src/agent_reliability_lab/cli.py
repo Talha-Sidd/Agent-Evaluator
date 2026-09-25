@@ -9,6 +9,12 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from agent_reliability_lab.domain.models import Scenario
+from agent_reliability_lab.platform.evals.comparison import (
+    compare_snapshots,
+    create_snapshot,
+    load_snapshot,
+    save_snapshot,
+)
 from agent_reliability_lab.platform.evals.quality_gate import (
     QualityGate,
     QualityGateConfig,
@@ -22,10 +28,19 @@ def _load_gate_config(path: Path) -> QualityGateConfig:
     return QualityGateConfig.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
 
-def _run_eval(dataset: Path, gate_config_path: Path, as_json: bool) -> int:
+def _run_eval(
+    dataset: Path, gate_config_path: Path, as_json: bool,
+    snapshot_path: Path | None = None, agent_version: str | None = None,
+) -> int:
+    if (snapshot_path is None) != (agent_version is None):
+        raise ValueError("snapshot and agent version must be supplied together")
+    config = _load_gate_config(gate_config_path)
     suite = EvaluationSuite()
-    scorecard = suite.run(suite.load_jsonl(dataset), dataset.stem)
-    gate = QualityGate(_load_gate_config(gate_config_path)).evaluate(scorecard)
+    scenarios = suite.load_jsonl(dataset)
+    scorecard = suite.run(scenarios, dataset.stem)
+    gate = QualityGate(config).evaluate(scorecard)
+    if snapshot_path is not None and agent_version is not None:
+        save_snapshot(create_snapshot(scenarios, scorecard, agent_version), snapshot_path)
     if as_json:
         output = scorecard.model_dump(mode="json")
         output["quality_gate"] = gate.model_dump(mode="json")
@@ -33,6 +48,24 @@ def _run_eval(dataset: Path, gate_config_path: Path, as_json: bool) -> int:
     else:
         _print_scorecard(scorecard, gate)
     return 0 if gate.passed else 1
+
+
+def _run_compare(baseline: Path, candidate: Path, gate_config: Path, as_json: bool) -> int:
+    result = compare_snapshots(
+        load_snapshot(baseline), load_snapshot(candidate), _load_gate_config(gate_config)
+    )
+    if as_json:
+        print(result.model_dump_json(indent=2))
+    else:
+        print(f"Comparison: {result.baseline_version} -> {result.candidate_version}")
+        print(f"Task success: {result.baseline_success_rate:.1%} -> "
+              f"{result.candidate_success_rate:.1%}")
+        print("Regressions: " + (", ".join(result.regressions) or "none"))
+        print("Improvements: " + (", ".join(result.improvements) or "none"))
+        print(f"Comparison gate: {'PASSED' if result.passed else 'FAILED'}")
+        for violation in result.violations:
+            print(f"Gate violation: {violation}")
+    return 0 if result.passed else 1
 
 
 def _print_scorecard(scorecard: SuiteScorecard, gate: QualityGateResult) -> None:
@@ -95,6 +128,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=Path("evals/quality_gate.json"),
     )
     eval_parser.add_argument("--json", action="store_true", help="print the scorecard as JSON")
+    eval_parser.add_argument("--snapshot", type=Path, help="write a new evaluation snapshot")
+    eval_parser.add_argument("--agent-version", help="version label for the evaluated checkout")
+    compare_parser = subparsers.add_parser("compare", help="compare two evaluation snapshots")
+    compare_parser.add_argument("--baseline", type=Path, required=True)
+    compare_parser.add_argument("--candidate", type=Path, required=True)
+    compare_parser.add_argument("--gate-config", type=Path, default=Path("evals/quality_gate.json"))
+    compare_parser.add_argument("--json", action="store_true")
     replay_parser = subparsers.add_parser("replay", help="create or run replay artifacts")
     replay_subparsers = replay_parser.add_subparsers(dest="replay_command", required=True)
     create_parser = replay_subparsers.add_parser("create", help="freeze a scenario baseline")
@@ -109,7 +149,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         if args.command == "eval":
-            return _run_eval(args.dataset, args.gate_config, args.json)
+            return _run_eval(
+                args.dataset, args.gate_config, args.json, args.snapshot, args.agent_version
+            )
+        if args.command == "compare":
+            return _run_compare(args.baseline, args.candidate, args.gate_config, args.json)
         if args.command == "replay" and args.replay_command == "create":
             return _run_replay_create(args.dataset, args.scenario_id, args.output, args.force)
         if args.command == "replay" and args.replay_command == "run":

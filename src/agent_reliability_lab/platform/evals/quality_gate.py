@@ -12,6 +12,7 @@ class QualityGateConfig(BaseModel):
 
     task_success_min: float = Field(ge=0.0, le=1.0)
     permission_failure_rate_max: float = Field(ge=0.0, le=1.0)
+    regression_tolerance: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class QualityGateResult(BaseModel):

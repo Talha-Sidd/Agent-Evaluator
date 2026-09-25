@@ -8,6 +8,20 @@
 
 ---
 
+
+## Implementation checkpoint - 2026-09-26
+
+Checked items below indicate implemented capabilities, not completion of the
+entire suggested stack. RepoPilot is the actual demo agent. Storage is in-memory
+or JSON files; no database is implemented. Graders verify search outputs, not a
+mutable external environment. Model events, measured cost/latency gates, UI, and
+approval/resume remain future work. CI is configured but hosted execution has
+not yet been observed. Nightly scheduling remains deferred.
+
+See [BUILD_STATUS.md](docs/BUILD_STATUS.md) for verified results and
+[TODO.md](docs/TODO.md) for the current ordered batches and acceptance criteria.
+The original ten-day sequence below remains a target, not a calendar commitment.
+
 ## 1. What it does
 
 ~~~mermaid
@@ -83,30 +97,31 @@ Expected environment state must be stored outside the model.
 
 ### 10-day MVP
 
-- [ ] Python agent adapter interface.
-- [ ] Ten deterministic scenarios.
-- [ ] Scenario runner.
-- [ ] Normalized trace schema.
+- [x] Python agent adapter interface.
+- [x] Ten deterministic scenarios.
+- [x] Scenario runner.
+- [x] Normalized trace schema.
 - [ ] PostgreSQL trace storage.
-- [ ] Deterministic graders.
-- [ ] Failure taxonomy.
-- [ ] Failed-run replay.
+- [x] Deterministic graders.
+- [x] Failure taxonomy.
+- [x] Failed-run replay.
 - [ ] Cost and latency metrics.
-- [ ] Quality gate.
-- [ ] CLI report.
+- [x] Quality gate.
+- [x] CLI report.
 
 ### Advanced portfolio version
 
 - [ ] Next.js trace explorer.
-- [ ] Candidate A/B comparison.
+- [x] Candidate A/B comparison.
 - [ ] Human approval for candidate release.
-- [ ] Security and permission graders.
+- [x] Security and permission graders.
 - [ ] Retrieval-quality graders.
 - [ ] OpenTelemetry traces.
 - [ ] Optional LangSmith or Langfuse adapter.
 - [ ] Parallel suite execution with limits.
 - [ ] Baseline regression history.
-- [ ] CI and nightly evaluation jobs.
+- [x] CI evaluation workflow (hosted execution unverified).
+- [ ] Nightly evaluation jobs.
 
 ---
 
@@ -406,52 +421,53 @@ The review screen must show:
 
 ### Day 1 — foundation
 
-- [ ] Create repository.
+- [x] Create repository.
 - [ ] Add Docker and PostgreSQL.
-- [ ] Define adapter and scenario schemas.
-- [ ] Create demo agent.
+- [x] Define adapter and scenario schemas.
+- [x] Create demo agent.
 
 ### Day 2 — scenario runner
 
-- [ ] Load YAML/JSON cases.
-- [ ] Run one scenario.
-- [ ] Add timeout and concurrency limit.
-- [ ] Store result.
+- [x] Load YAML/JSON cases.
+- [x] Run one scenario.
+- [x] Add timeout and concurrency limit.
+- [x] Store result.
 
 ### Day 3 — tracing
 
 - [ ] Capture model/tool/retrieval/error events.
-- [ ] Add run IDs.
-- [ ] Add redaction.
+- [x] Add run IDs.
+- [x] Add redaction.
 - [ ] Store normalized traces.
 
 ### Day 4 — graders
 
-- [ ] Add final-state grader.
-- [ ] Add tool-selection grader.
-- [ ] Add permission grader.
+- [x] Add final-state grader.
+- [x] Add tool-selection grader.
+- [x] Add permission grader.
 - [ ] Add cost/latency graders.
 
 ### Day 5 — failure classification
 
-- [ ] Add taxonomy.
-- [ ] Link categories to evidence.
-- [ ] Create failure report.
-- [ ] Add fixture failures.
+- [x] Add taxonomy.
+- [x] Link categories to evidence.
+- [x] Create failure report.
+- [x] Add fixture failures.
 
 ### Day 6 — replay
 
-- [ ] Replay failed run.
-- [ ] Freeze environment.
-- [ ] Create regression case.
-- [ ] Compare traces.
+- [x] Replay failed run.
+- [x] Freeze environment.
+- [x] Create regression case.
+- [x] Compare traces.
 
 ### Day 7 — quality gate
 
-- [ ] Define thresholds.
-- [ ] Compare baseline and candidate.
-- [ ] Fail on security regression.
-- [ ] Export JSON/Markdown report.
+- [x] Define thresholds.
+- [x] Compare baseline and candidate.
+- [x] Fail on security regression.
+- [x] Export JSON reports.
+- [ ] Export Markdown reports.
 
 ### Day 8 — review UI
 
@@ -462,7 +478,7 @@ The review screen must show:
 
 ### Day 9 — CI and observability
 
-- [ ] Add GitHub Actions smoke suite.
+- [x] Add GitHub Actions smoke suite.
 - [ ] Add OpenTelemetry.
 - [ ] Add cost and P95 metrics.
 - [ ] Add ten attack/recovery cases.
@@ -470,10 +486,10 @@ The review screen must show:
 ### Day 10 — polish
 
 - [ ] Docker startup.
-- [ ] README.
-- [ ] Architecture diagram.
+- [x] README.
+- [x] Architecture diagram.
 - [ ] Demo v1 versus v2.
-- [ ] Document limitations.
+- [x] Document limitations.
 
 ---
 
@@ -511,9 +527,9 @@ Deployment checklist:
 - [ ] Pinned dependencies and images.
 - [ ] Secrets outside traces.
 - [ ] Database migrations.
-- [ ] Health endpoint.
-- [ ] Retention policy.
-- [ ] CI smoke suite.
+- [x] Health endpoint.
+- [x] Retention policy.
+- [x] CI smoke suite.
 - [ ] Manual candidate approval.
 - [ ] Rollback to prior evaluator/prompt version.
 
@@ -523,14 +539,14 @@ Deployment checklist:
 
 - [ ] Clean clone runs a suite.
 - [ ] Traces show model/tool/retrieval/error evidence.
-- [ ] Deterministic graders verify real outcomes.
-- [ ] Failed runs receive taxonomy labels.
-- [ ] Failed runs can become regression cases.
-- [ ] Candidate versions are compared.
+- [x] Deterministic graders verify real outcomes.
+- [x] Failed runs receive taxonomy labels.
+- [x] Failed runs can become regression cases.
+- [x] Candidate versions are compared.
 - [ ] Security/cost/latency gates can block release.
 - [ ] Human can inspect and approve a candidate.
 - [ ] Demo clearly shows failure to improvement.
-- [ ] README does not hide limitations.
+- [x] README does not hide limitations.
 
 ---
 
