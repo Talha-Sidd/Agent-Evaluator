@@ -15,9 +15,10 @@ Checked items below indicate implemented capabilities, not completion of the
 entire suggested stack. RepoPilot is the actual demo agent. API storage is
 in-memory by default, with optional PostgreSQL storage and explicit migrations.
 PostgreSQL migration and restart tests passed against a disposable local server.
-Graders verify search outputs, not a mutable external environment. Model events,
-measured cost/latency gates, UI, and approval/resume remain future work. CI is
-configured but hosted execution has not yet been observed. Nightly scheduling
+Graders verify search outputs, not a mutable external environment. The model gateway,
+bounded RepoPilot adapter, fake-provider tests, and model usage evidence are implemented.
+Live provider integration, measured cost/latency gates, UI, and approval/resume remain future work.
+The refined hosted CI passed on 2026-09-26. Nightly scheduling
 remains deferred.
 
 The original ten-day sequence below remains a target, not a calendar commitment.
@@ -435,7 +436,7 @@ The review screen must show:
 
 ### Day 3 — tracing
 
-- [ ] Capture model/tool/retrieval/error events.
+- [x] Capture model/tool/retrieval/error events.
 - [x] Add run IDs.
 - [x] Add redaction.
 - [ ] Store normalized traces.

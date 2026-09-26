@@ -22,6 +22,12 @@ class ErrorCode(StrEnum):
     APPROVAL_REQUIRED = "approval_required"
     TIMEOUT = "timeout"
     TOOL_ERROR = "tool_error"
+    MODEL_ERROR = "model_error"
+    MODEL_NOT_CONFIGURED = "model_not_configured"
+    MODEL_CALL_LIMIT_EXCEEDED = "model_call_limit_exceeded"
+    TOKEN_BUDGET_EXCEEDED = "token_budget_exceeded"
+    COST_BUDGET_EXCEEDED = "cost_budget_exceeded"
+    CONTEXT_LIMIT_EXCEEDED = "context_limit_exceeded"
     STEP_LIMIT_EXCEEDED = "step_limit_exceeded"
     EVALUATION_FAILURE = "evaluation_failure"
     INTERNAL_ERROR = "internal_error"
@@ -262,6 +268,27 @@ class RunTiming(BaseModel):
     agent_worker_startup_ms: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
+class ModelCall(BaseModel):
+    """Parent-owned model evidence without raw prompts or response text."""
+
+    model_config = ConfigDict(extra="forbid")
+    call_id: UUID = Field(default_factory=uuid4)
+    provider: str
+    model: str
+    prompt_version: str
+    request_sha256: str
+    response_sha256: str | None = None
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    estimated_cost_usd: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    input_usd_per_million: float = Field(ge=0, allow_inf_nan=False)
+    output_usd_per_million: float = Field(ge=0, allow_inf_nan=False)
+    duration_ms: float = Field(default=0, ge=0, allow_inf_nan=False)
+    executed: bool = False
+    success: bool = False
+    error_code: ErrorCode | None = None
+
+
 class AgentResult(BaseModel):
     """Normalized result returned by the scenario runner."""
 
@@ -276,6 +303,7 @@ class AgentResult(BaseModel):
     error: str | None = None
     error_code: ErrorCode | None = None
     timing: RunTiming | None = None
+    model_calls: list[ModelCall] = Field(default_factory=list)
 
 
 class StoredRun(BaseModel):

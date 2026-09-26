@@ -20,6 +20,10 @@ ERROR_CATEGORIES = {
     ErrorCode.APPROVAL_REQUIRED: FailureCategory.POLICY_BLOCKED,
     ErrorCode.TIMEOUT: FailureCategory.LOOP_BUDGET_FAILURE,
     ErrorCode.STEP_LIMIT_EXCEEDED: FailureCategory.LOOP_BUDGET_FAILURE,
+    ErrorCode.MODEL_CALL_LIMIT_EXCEEDED: FailureCategory.LOOP_BUDGET_FAILURE,
+    ErrorCode.TOKEN_BUDGET_EXCEEDED: FailureCategory.LOOP_BUDGET_FAILURE,
+    ErrorCode.COST_BUDGET_EXCEEDED: FailureCategory.LOOP_BUDGET_FAILURE,
+    ErrorCode.CONTEXT_LIMIT_EXCEEDED: FailureCategory.CONTEXT_FAILURE,
     ErrorCode.EVALUATION_FAILURE: FailureCategory.GRADER_EVALUATION_FAILURE,
 }
 
@@ -36,14 +40,35 @@ class StarterEvaluator:
         calls = result.tool_calls
         events = result.trace
         call_ids = {call.call_id for call in calls}
+        model_ids = {call.call_id for call in result.model_calls}
         identity_ok = (
             result.scenario_id == scenario.scenario_id
             and all(event.run_id == result.run_id for event in events)
             and len(call_ids) == len(calls)
+            and len(model_ids) == len(result.model_calls)
+            and not call_ids.intersection(model_ids)
             and len({event.event_id for event in events}) == len(events)
         )
         permissions_ok = True
         execution_ok = (result.error_code is None) == succeeded
+        for model_call in result.model_calls:
+            related = [event for event in events if event.call_id == model_call.call_id]
+            execution_ok &= [event.event_type for event in related] == [
+                "model.requested", "model.completed" if model_call.success else "model.failed"
+            ]
+            if model_call.success:
+                execution_ok &= (
+                    model_call.executed and model_call.error_code is None
+                    and model_call.input_tokens is not None
+                    and model_call.output_tokens is not None
+                    and model_call.estimated_cost_usd is not None
+                    and model_call.response_sha256 is not None
+                )
+            else:
+                execution_ok &= model_call.error_code is not None and not succeeded
+            if related:
+                execution_ok &= related[-1].success == model_call.success
+                execution_ok &= related[-1].error_code == model_call.error_code
         for call in calls:
             related = [event for event in events if event.call_id == call.call_id]
             expected = ["tool.requested"]
@@ -89,7 +114,7 @@ class StarterEvaluator:
             "run.completed",
         ]
         execution_ok &= all(
-            event.call_id in call_ids for event in events if event.call_id is not None
+            event.call_id in call_ids | model_ids for event in events if event.call_id is not None
         )
         if len(events) >= 2:
             execution_ok &= events[-1].event_type == "run.completed"

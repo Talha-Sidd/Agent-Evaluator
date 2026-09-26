@@ -7,10 +7,12 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from agent_reliability_lab.domain.errors import ToolExecutionError
+from agent_reliability_lab.domain.model_gateway import ModelRequest, ModelResponse
 from agent_reliability_lab.domain.models import (
     AgentResult,
     AgentTask,
     ErrorCode,
+    ModelCall,
     PermissionDecision,
     RiskLevel,
     RunStatus,
@@ -20,6 +22,7 @@ from agent_reliability_lab.domain.models import (
     TraceEvent,
 )
 from agent_reliability_lab.domain.protocols import AgentAdapter
+from agent_reliability_lab.platform.model_gateway import ModelGateway
 from agent_reliability_lab.platform.security import fingerprint, sanitize
 from agent_reliability_lab.platform.tools.registry import TypedToolRegistry
 from agent_reliability_lab.platform.tools.repopilot import build_repopilot_registry
@@ -56,6 +59,13 @@ class RemoteTools:
         if not isinstance(output, dict):
             raise ToolExecutionError(ErrorCode.INVALID_TOOL_OUTPUT)
         return output
+
+    def complete(self, request: ModelRequest) -> ModelResponse:
+        send_json(self._connection, {"kind": "model", "request": request.model_dump(mode="json")})
+        response = receive_json(self._connection)
+        if "error" in response:
+            raise ToolExecutionError(ErrorCode(response["error"]))
+        return ModelResponse.model_validate(response["response"])
 
 
 def _agent_worker(
@@ -120,8 +130,11 @@ class CallObserver:
 class ScenarioRunner:
     """Own run identity, budgets, worker lifecycles, permissions, and terminal events."""
 
-    def __init__(self, registry: TypedToolRegistry | None = None) -> None:
+    def __init__(
+        self, registry: TypedToolRegistry | None = None, *, gateway: ModelGateway | None = None
+    ) -> None:
         self._registry = registry or build_repopilot_registry()
+        self._gateway = gateway
 
     def safety_controls(self) -> dict[str, bool]:
         from agent_reliability_lab.platform.evals.safety import permission_controls
@@ -137,6 +150,7 @@ class ScenarioRunner:
             TraceEvent(run_id=run_id, event_type="agent.started"),
         ]
         calls: list[ToolCall] = []
+        model_calls: list[ModelCall] = []
         result: AgentResult
         try:
             # Revalidate mutable caller-owned models and retain validation failures.
@@ -169,6 +183,37 @@ class ScenarioRunner:
                         if result.run_id != run_id or result.scenario_id != scenario.scenario_id:
                             raise ToolExecutionError(ErrorCode.INTERNAL_ERROR)
                         break
+                    if message.get("kind") == "model":
+                        if self._gateway is None:
+                            raise ToolExecutionError(ErrorCode.MODEL_NOT_CONFIGURED)
+                        try:
+                            if set(message) != {"kind", "request"}:
+                                raise ValueError("invalid model envelope")
+                            model_request = ModelRequest.model_validate(message["request"])
+                        except (ValidationError, ValueError):
+                            raise ToolExecutionError(ErrorCode.INVALID_INPUT) from None
+                        model_call = self._gateway.record(model_request)
+                        model_calls.append(model_call)
+                        events.append(TraceEvent(
+                            run_id=run_id, call_id=model_call.call_id, event_type="model.requested"
+                        ))
+                        try:
+                            response = self._gateway.complete(
+                                model_request, model_call, model_calls[:-1], deadline
+                            )
+                        except ToolExecutionError as exc:
+                            model_call.error_code = exc.code
+                            events.append(TraceEvent(
+                                run_id=run_id, call_id=model_call.call_id,
+                                event_type="model.failed", success=False, error_code=exc.code,
+                            ))
+                            raise
+                        events.append(TraceEvent(
+                            run_id=run_id, call_id=model_call.call_id,
+                            event_type="model.completed", success=True,
+                        ))
+                        send_json(connection, {"response": response.model_dump(mode="json")})
+                        continue
                     try:
                         request = ToolRequest.model_validate(message)
                     except ValidationError:
@@ -228,6 +273,7 @@ class ScenarioRunner:
         result.error = result.error_code.value if result.error_code else None
         result.final_answer = sanitize(result.final_answer)
         result.tool_calls = calls
+        result.model_calls = model_calls
         success = result.status is RunStatus.SUCCEEDED
         events.extend(
             [

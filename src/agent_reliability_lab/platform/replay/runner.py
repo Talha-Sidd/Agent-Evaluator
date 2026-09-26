@@ -21,7 +21,10 @@ from agent_reliability_lab.platform.security import require_safe_replay, sanitiz
 
 
 def normalize_execution(result: AgentResult, evaluation: EvaluationResult) -> dict[str, Any]:
-    call_ids = {call.call_id: index for index, call in enumerate(result.tool_calls)}
+    call_ids: dict[Any, Any] = {
+        call.call_id: index for index, call in enumerate(result.tool_calls)
+    }
+    call_ids.update({call.call_id: f"model:{i}" for i, call in enumerate(result.model_calls)})
     approval_ids = {
         value: index
         for index, value in enumerate(
@@ -44,13 +47,19 @@ def normalize_execution(result: AgentResult, evaluation: EvaluationResult) -> di
         value["call_id"] = call_ids.get(event.call_id) if event.call_id is not None else None
         value["approval_id"] = approval_ids.get(event.approval_id) if event.approval_id else None
         events.append(value)
-    return {
+    normalized = {
         "calls": calls,
         "events": events,
         "error_code": result.error_code,
         "checks": [item.model_dump(mode="json") for item in evaluation.checks],
         "failure_categories": [report.category.value for report in evaluation.failure_reports],
     }
+    if result.model_calls:
+        normalized["model_calls"] = [
+            call.model_dump(mode="json", exclude={"call_id", "duration_ms"})
+            for call in result.model_calls
+        ]
+    return normalized
 
 
 class ReplayRunner:

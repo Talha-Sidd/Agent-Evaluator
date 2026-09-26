@@ -29,6 +29,8 @@ The deterministic foundation currently contains:
 - compact versioned evaluation snapshots and baseline/candidate comparison;
 - per-case regression gates and a Linux/Windows CI workflow;
 - parent-observed monotonic run/tool timing and suite latency distributions;
+- a provider-neutral model gateway, scripted fake provider, and bounded model-backed RepoPilot;
+- parent-owned model evidence with token usage, estimated USD cost, and latency;
 - unit and integration tests.
 
 The harness records tool requests, validated arguments (with fixture hashes),
@@ -47,23 +49,28 @@ versioned synthetic fixture in `tests/fixtures/performance_samples.json` checks
 the aggregation method. These are observations, not release gates; no latency
 threshold is set without a documented performance baseline.
 
-No model provider, shell tool, or multi-agent orchestration is included yet.
+Live model providers are the next integration milestone.
 Adapters and tool handlers run in supervised Python worker processes so timeouts
 can stop execution. This is lifecycle isolation for trusted code, not an OS
 security sandbox. API results use bounded in-memory retention by default.
 
 ## Roadmap: real LLM evaluation
 
-The project is currently establishing deterministic timing and evaluation
-evidence. The next model-related milestone is a provider-neutral gateway and a
-bounded model-backed RepoPilot adapter, first tested with a fake provider. After
-that, an opt-in live-model evaluation will run the same versioned scenarios and
+The provider-neutral gateway and model-backed RepoPilot adapter are implemented
+and tested with a fake provider. The parent runner dispatches model calls through
+supervised workers and enforces per-run call, token, estimated-cost, and time
+limits. The next milestone is an opt-in live-model evaluation over the same versioned scenarios and
 fixture fingerprints as the deterministic baseline. It will record provider and
 model identity, prompt version, token usage, estimated cost, latency, and
 trajectory outcomes. Live calls will remain separate from normal unit tests and
 CI. Cost or latency release gates will wait until repeated measurements produce
 a documented baseline. See [the LLM evaluation roadmap](docs/LLM_EVALUATION_ROADMAP.md)
 for the planned sequence and acceptance criteria.
+
+Python callers can use `EvaluationSuite(agent=RepoPilotModel(),
+runner=ScenarioRunner(gateway=ModelGateway(provider, config)))`. Model-backed
+execution is opt-in; the CLI and API still use the deterministic agent by default.
+Configuration and a runnable fake-provider example are in the roadmap.
 
 ## Development
 

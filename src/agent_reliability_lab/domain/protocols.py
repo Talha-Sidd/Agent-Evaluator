@@ -3,6 +3,7 @@
 from typing import Any, Protocol
 from uuid import UUID
 
+from agent_reliability_lab.domain.model_gateway import ModelRequest, ModelResponse
 from agent_reliability_lab.domain.models import AgentResult, AgentTask, StoredRun, TraceEvent
 
 
@@ -27,6 +28,12 @@ class ToolExecutor(Protocol):
 
     def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Request a validated and authorized action from the harness."""
+
+
+class ModelExecutor(ToolExecutor, Protocol):
+    """Restricted model-request interface mediated by the parent harness."""
+
+    def complete(self, request: ModelRequest) -> ModelResponse: ...
 
 
 class RunRepository(Protocol):
