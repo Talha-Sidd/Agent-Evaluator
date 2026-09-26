@@ -20,8 +20,6 @@ measured cost/latency gates, UI, and approval/resume remain future work. CI is
 configured but hosted execution has not yet been observed. Nightly scheduling
 remains deferred.
 
-See [BUILD_STATUS.md](docs/BUILD_STATUS.md) for verified results and
-[TODO.md](docs/TODO.md) for the current ordered batches and acceptance criteria.
 The original ten-day sequence below remains a target, not a calendar commitment.
 
 ## 1. What it does
