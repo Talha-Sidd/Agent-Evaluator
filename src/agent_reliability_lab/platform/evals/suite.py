@@ -16,6 +16,7 @@ from agent_reliability_lab.domain.models import (
     Scenario,
 )
 from agent_reliability_lab.domain.protocols import AgentAdapter
+from agent_reliability_lab.platform.evals.performance import SuiteLatency, summarize_latency
 from agent_reliability_lab.platform.evals.starter import StarterEvaluator
 from agent_reliability_lab.platform.runner.runner import ScenarioRunner
 
@@ -40,6 +41,7 @@ class SuiteScorecard(BaseModel):
     task_success_rate: float = Field(ge=0.0, le=1.0)
     cases: list[CaseReport] = Field(default_factory=list)
     safety_checks: dict[str, bool] = Field(default_factory=dict)
+    latency: SuiteLatency | None = None
 
     @model_validator(mode="after")
     def consistent(self) -> Self:
@@ -133,4 +135,5 @@ class EvaluationSuite:
             task_success_rate=success_rate,
             cases=cases,
             safety_checks=self._runner.safety_controls(),
+            latency=summarize_latency([case.result for case in cases]),
         )

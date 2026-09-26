@@ -248,6 +248,18 @@ class ToolCall(BaseModel):
     output: dict[str, Any] | None = None
     output_sha256: str | None = None
     error_code: ErrorCode | None = None
+    request_duration_ms: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    worker_startup_ms: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+
+
+class RunTiming(BaseModel):
+    """Parent-process monotonic durations; all values are milliseconds."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["parent_monotonic"] = "parent_monotonic"
+    run_duration_ms: float = Field(ge=0, allow_inf_nan=False)
+    agent_worker_startup_ms: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class AgentResult(BaseModel):
@@ -263,6 +275,7 @@ class AgentResult(BaseModel):
     trace: list[TraceEvent] = Field(default_factory=list)
     error: str | None = None
     error_code: ErrorCode | None = None
+    timing: RunTiming | None = None
 
 
 class StoredRun(BaseModel):

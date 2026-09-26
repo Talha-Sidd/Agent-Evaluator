@@ -28,6 +28,7 @@ The deterministic foundation currently contains:
 - JSON replay artifacts with create/run CLI commands;
 - compact versioned evaluation snapshots and baseline/candidate comparison;
 - per-case regression gates and a Linux/Windows CI workflow;
+- parent-observed monotonic run/tool timing and suite latency distributions;
 - unit and integration tests.
 
 The harness records tool requests, validated arguments (with fixture hashes),
@@ -36,10 +37,33 @@ high-risk actions require approval and cannot execute automatically. Approval
 records are immutable and transitions are atomic; pause/resume is still future
 work, so approving a record does not enable execution yet.
 
-No model provider, shell tool, or multi-agent orchestration is included.
+Timing fields use milliseconds from the parent process's monotonic clock. Run
+duration includes validation, agent worker startup, execution, worker teardown,
+and result normalization. Agent and tool worker startup end when the parent
+receives each worker's ready message; tool request duration includes validation,
+permission checks, worker startup, execution, and teardown. Suite summaries use
+nearest-rank p50/p95 values and report missing measurements separately. The
+versioned synthetic fixture in `tests/fixtures/performance_samples.json` checks
+the aggregation method. These are observations, not release gates; no latency
+threshold is set without a documented performance baseline.
+
+No model provider, shell tool, or multi-agent orchestration is included yet.
 Adapters and tool handlers run in supervised Python worker processes so timeouts
 can stop execution. This is lifecycle isolation for trusted code, not an OS
 security sandbox. API results use bounded in-memory retention by default.
+
+## Roadmap: real LLM evaluation
+
+The project is currently establishing deterministic timing and evaluation
+evidence. The next model-related milestone is a provider-neutral gateway and a
+bounded model-backed RepoPilot adapter, first tested with a fake provider. After
+that, an opt-in live-model evaluation will run the same versioned scenarios and
+fixture fingerprints as the deterministic baseline. It will record provider and
+model identity, prompt version, token usage, estimated cost, latency, and
+trajectory outcomes. Live calls will remain separate from normal unit tests and
+CI. Cost or latency release gates will wait until repeated measurements produce
+a documented baseline. See [the LLM evaluation roadmap](docs/LLM_EVALUATION_ROADMAP.md)
+for the planned sequence and acceptance criteria.
 
 ## Development
 
@@ -190,9 +214,9 @@ the responsibility of replay. Bump `EVALUATOR_VERSION` when grading semantics ch
 `.github/workflows/quality.yml` separates Python checks, Linux/Windows tests,
 agent evaluation, PostgreSQL integration, and package building into named jobs.
 Evaluation compares against `evals/baselines/repopilot.json` and replays a frozen
-case. Test and evaluation reports are retained for 14 days. The previous hosted
-workflow completed successfully; this revised layout still needs a hosted run.
-There is no automatic release or baseline promotion. Action usage follows the
+case. Test and evaluation reports are retained for 14 days. The refined hosted
+workflow passed on 2026-09-26. There is no automatic release or baseline
+promotion. Action usage follows the
 official [checkout](https://github.com/actions/checkout),
 [setup-uv](https://github.com/astral-sh/setup-uv), and
 [artifact upload](https://github.com/actions/upload-artifact) documentation.

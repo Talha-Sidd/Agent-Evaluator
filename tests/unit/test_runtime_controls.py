@@ -165,7 +165,12 @@ def test_agent_cannot_see_grading_labels() -> None:
         expected_behavior="private label",
         expected_terms=["grader-only-answer"],
     )
-    assert ScenarioRunner().run(ProbeAgent("labels"), scenario).status is RunStatus.SUCCEEDED
+    result = ScenarioRunner().run(ProbeAgent("labels"), scenario)
+    assert result.status is RunStatus.SUCCEEDED
+    assert result.timing is not None
+    assert result.timing.source == "parent_monotonic"
+    assert result.timing.agent_worker_startup_ms is not None
+    assert result.timing.run_duration_ms >= result.timing.agent_worker_startup_ms
 
 
 def test_suite_preserves_crash_evidence_and_continues() -> None:

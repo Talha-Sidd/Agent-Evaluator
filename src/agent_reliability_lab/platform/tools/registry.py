@@ -36,6 +36,7 @@ class DispatchObserver(Protocol):
     def validated(self, arguments: dict[str, Any]) -> None: ...
     def permission(self, decision: PermissionDecision, risk: RiskLevel) -> None: ...
     def started(self) -> None: ...
+    def worker_ready(self, startup_ms: float) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ def _tool_worker(
     arguments: dict[str, Any],
 ) -> None:
     try:
+        send_json(connection, {"kind": "ready"})
         output = tool.handler(tool.input_model.model_validate(arguments))
         raw = (
             output.model_dump(mode="python", warnings=False)
@@ -143,8 +145,15 @@ class TypedToolRegistry:
         try:
             if observer:
                 observer.started()
+            worker_start = time.monotonic()
             process, connection = start_worker(_tool_worker, tool, request)
             try:
+                if not connection.poll(max(0, end - time.monotonic())):
+                    raise ToolExecutionError(ErrorCode.TIMEOUT)
+                if receive_json(connection) != {"kind": "ready"}:
+                    raise ToolExecutionError(ErrorCode.TOOL_ERROR)
+                if observer:
+                    observer.worker_ready((time.monotonic() - worker_start) * 1000)
                 if not connection.poll(max(0, end - time.monotonic())):
                     raise ToolExecutionError(ErrorCode.TIMEOUT)
                 response = receive_json(connection)

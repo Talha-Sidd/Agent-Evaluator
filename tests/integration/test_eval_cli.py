@@ -18,6 +18,12 @@ def test_evaluation_suite_runs_all_golden_cases() -> None:
     assert scorecard.failed_cases == []
     assert scorecard.failure_category_counts == {}
     assert scorecard.task_success_rate == 1.0
+    assert scorecard.latency is not None
+    assert scorecard.latency.run.samples == 10
+    assert scorecard.latency.run.missing == 0
+    assert scorecard.latency.agent_worker_startup.missing == 0
+    assert scorecard.latency.tool_request.missing == 0
+    assert scorecard.latency.tool_worker_startup.missing == 0
 
 
 def test_eval_cli_returns_success_for_passing_suite(capsys: object) -> None:
@@ -31,6 +37,7 @@ def test_eval_cli_returns_success_for_passing_suite(capsys: object) -> None:
     assert output["quality_gate"]["passed"] is True
     assert all(output["safety_checks"].values())
     assert len(output["cases"]) == 10
+    assert output["latency"]["run"]["samples"] == 10
 
 
 def test_replay_cli_creates_and_runs_case(tmp_path: Path, capsys: object) -> None:

@@ -33,7 +33,8 @@ def normalize_execution(result: AgentResult, evaluation: EvaluationResult) -> di
     calls = []
     for call in result.tool_calls:
         value = call.model_dump(mode="json")
-        value.pop("call_id")
+        for key in ("call_id", "request_duration_ms", "worker_startup_ms"):
+            value.pop(key)
         calls.append(value)
     events = []
     for event in result.trace:

@@ -14,6 +14,7 @@ from agent_reliability_lab.domain.models import (
     PermissionDecision,
     RiskLevel,
     RunStatus,
+    RunTiming,
     Scenario,
     ToolCall,
     TraceEvent,
@@ -64,6 +65,7 @@ def _agent_worker(
     run_id: UUID,
 ) -> None:
     try:
+        send_json(connection, {"kind": "ready"})
         result = agent.run(task, run_id, RemoteTools(connection))
         send_json(connection, {"kind": "result", "result": result.model_dump(mode="json")})
     except ToolExecutionError as exc:
@@ -111,6 +113,9 @@ class CallObserver:
         self.call.executed = True
         self.emit("tool.started")
 
+    def worker_ready(self, startup_ms: float) -> None:
+        self.call.worker_startup_ms = startup_ms
+
 
 class ScenarioRunner:
     """Own run identity, budgets, worker lifecycles, permissions, and terminal events."""
@@ -124,6 +129,8 @@ class ScenarioRunner:
         return permission_controls(self._registry.permission_policy)
 
     def run(self, agent: AgentAdapter, scenario: Scenario) -> AgentResult:
+        run_started = time.monotonic()
+        agent_startup_ms: float | None = None
         run_id = uuid4()
         events = [
             TraceEvent(run_id=run_id, event_type="run.started"),
@@ -138,13 +145,23 @@ class ScenarioRunner:
             except ValidationError:
                 raise ToolExecutionError(ErrorCode.INVALID_INPUT) from None
             deadline = time.monotonic() + scenario.timeout_seconds
+            agent_start = time.monotonic()
             process, connection = start_worker(_agent_worker, agent, scenario.agent_task(), run_id)
+            worker_ready = False
             try:
                 while True:
                     remaining = deadline - time.monotonic()
                     if remaining <= 0 or not connection.poll(remaining):
                         raise ToolExecutionError(ErrorCode.TIMEOUT)
                     message = receive_json(connection)
+                    if message.get("kind") == "ready":
+                        if worker_ready or message != {"kind": "ready"}:
+                            raise ToolExecutionError(ErrorCode.INTERNAL_ERROR)
+                        worker_ready = True
+                        agent_startup_ms = (time.monotonic() - agent_start) * 1000
+                        continue
+                    if not worker_ready:
+                        raise ToolExecutionError(ErrorCode.INTERNAL_ERROR)
                     if message.get("kind") == "error":
                         raise ToolExecutionError(ErrorCode(message["error"]))
                     if message.get("kind") == "result":
@@ -156,6 +173,7 @@ class ScenarioRunner:
                         request = ToolRequest.model_validate(message)
                     except ValidationError:
                         raise ToolExecutionError(ErrorCode.INVALID_TOOL_ARGUMENTS) from None
+                    call_started = time.monotonic()
                     call = ToolCall(name=sanitize(request.name), success=False)
                     calls.append(call)
                     observer = CallObserver(run_id, call, events)
@@ -180,6 +198,8 @@ class ScenarioRunner:
                         if exc.code in {ErrorCode.TIMEOUT, ErrorCode.STEP_LIMIT_EXCEEDED}:
                             raise
                         send_json(connection, {"error": exc.code})
+                    finally:
+                        call.request_duration_ms = (time.monotonic() - call_started) * 1000
             finally:
                 stop_worker(process, connection)
         except ToolExecutionError as exc:
@@ -226,4 +246,8 @@ class ScenarioRunner:
             ]
         )
         result.trace = events
+        result.timing = RunTiming(
+            run_duration_ms=(time.monotonic() - run_started) * 1000,
+            agent_worker_startup_ms=agent_startup_ms,
+        )
         return result

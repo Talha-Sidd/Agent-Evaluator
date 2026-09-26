@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "unit": "ms",
+  "method": "nearest_rank",
+  "samples": [50, 10, 40, 20, 30],
+  "missing": 2,
+  "expected": {
+    "minimum_ms": 10,
+    "p50_ms": 30,
+    "p95_ms": 50,
+    "maximum_ms": 50
+  }
+}

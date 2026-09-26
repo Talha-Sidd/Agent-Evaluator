@@ -74,6 +74,16 @@ def _print_scorecard(scorecard: SuiteScorecard, gate: QualityGateResult) -> None
     print(f"Suite: {scorecard.suite_name}")
     print(f"Cases: {scorecard.passed_cases}/{scorecard.total_cases} passed")
     print(f"Task success rate: {scorecard.task_success_rate:.1%}")
+    if scorecard.latency is not None:
+        run_latency = scorecard.latency.run
+        if run_latency.p50_ms is None or run_latency.p95_ms is None:
+            print(f"Run latency: unmeasured ({run_latency.missing} missing)")
+        else:
+            print(
+                f"Run latency: p50 {run_latency.p50_ms:.1f} ms, "
+                f"p95 {run_latency.p95_ms:.1f} ms "
+                f"({run_latency.samples} measured, {run_latency.missing} missing)"
+            )
     if scorecard.failed_cases:
         print("Failed cases: " + ", ".join(scorecard.failed_cases))
     if scorecard.failure_category_counts:
