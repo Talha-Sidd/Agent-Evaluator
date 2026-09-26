@@ -10,6 +10,9 @@ dependencies = [
     "pydantic>=2.0,<3.0",
 ]
 
+[project.optional-dependencies]
+openai-live = ["openai>=1.68,<3.0"]
+
 [project.scripts]
 arl = "agent_reliability_lab.cli:main"
 
@@ -21,6 +24,7 @@ build-backend = "uv_build"
 dev = [
     "httpx>=0.28.1",
     "mypy>=1.0",
+    "openai>=1.68,<3.0",
     "pytest>=8.0",
     "ruff>=0.9",
 ]

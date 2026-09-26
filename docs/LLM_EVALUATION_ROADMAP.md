@@ -27,9 +27,10 @@ be replaced by adapter-authored records.
 tool requests pass through existing schema and permission checks; time, step,
 and cost limits stop execution with observable outcomes.
 
-The harness reserves the maximum input/output token allowance and its estimated
-cost before each dispatch, adding usage from earlier successful calls. A failure
-with unknown usage stops the run; missing usage is not reported as zero cost.
+The harness reserves the maximum input/output token allowance for each run and
+the estimated cost against the shared gateway-wide suite budget before dispatch.
+A failure with unknown usage keeps its cost reservation; missing usage is not
+reported as zero cost.
 Provider adapters must enforce input/output caps before making billable calls.
 Returned usage is validated again by the harness. Prices are explicit configured
 USD amounts per million tokens, not automatically fetched vendor prices.
@@ -87,23 +88,38 @@ if __name__ == "__main__":
 
 ## Stage 2: opt-in live evaluation
 
-This is the next batch. Stage 1 has deterministic verification; live provider
-integration and actual billing have not been verified. Select one live provider
-and implement its token-cap enforcement and usage mapping behind `ModelProvider`.
+OpenAI is the first live provider, behind `ModelProvider`. Its adapter uses the
+Responses API function-calling contract, checks input token count before model
+generation, applies the configured output-token cap, and maps returned usage.
+See the [OpenAI function-calling guide](https://developers.openai.com/api/docs/guides/function-calling),
+[token-counting guide](https://developers.openai.com/api/docs/guides/token-counting),
+and [official Python SDK instructions](https://developers.openai.com/api/docs/libraries).
 
-- Add an explicit command or integration-suite switch for live provider calls.
-- Run live and deterministic agents against the same versioned scenarios and
-  fixture fingerprints.
-- Store model and prompt versions with each result so runs can be reproduced and
-  compared.
-- Report task success, safety/permission behavior, trajectory quality, latency,
-  token usage, and estimated cost per successful case.
-- Keep credentials in environment configuration and redact them from traces and
-  reports.
+Implemented: `arl live-eval` is explicit and opt-in. It validates the selected
+dataset against the reviewed snapshot before dispatch, then runs the same grader
+and compares a candidate snapshot with the baseline. Reports contain per-case
+trajectory and model-call evidence, provider/model and prompt versions, usage,
+estimated cost, latency, quality gate, and regressions. Artifacts are sanitized
+and never overwrite an existing report. The SDK reads `OPENAI_API_KEY` from the
+environment, disables retries, checks counted input before generation, applies
+the output limit, and requests `store=False`.
 
-**Exit criteria:** a reviewer can compare live-model results to the same baseline
-cases, inspect failed trajectories, and see usage and cost without exposing
-secrets. Normal unit tests and standard CI make no external model calls.
+Per-run token/call limits and a gateway-wide suite cost ceiling are required.
+Prices are operator supplied; totals are estimates, not provider invoices. A
+failed request with unknown billed usage keeps its full configured cost
+reservation. The command has not been run against OpenAI, so account access and
+actual billing are unverified. Task text and fixture contents from the selected
+dataset are sent to the provider; review alternate datasets before running.
+
+- [x] Use an explicit opt-in command for live provider calls.
+- [x] Run against identical versioned scenarios and fixture fingerprints.
+- [x] Store model/prompt versions and per-case evidence.
+- [x] Report success, safety, trajectory, latency, usage, and estimated cost per success.
+- [x] Keep credentials in environment configuration and redact report content.
+
+**Still to verify:** run an explicitly authorized live evaluation with a usable
+API key and funded account, then review repeated measured results. Normal tests
+and CI make no provider calls.
 
 ## Stage 3: baselines and release gates
 
@@ -121,7 +137,7 @@ behind every pass or failure. No baseline is promoted automatically.
 
 ## Provider selection
 
-The repository does not yet select a live provider. The gateway and fake provider
-are implemented; add one live provider adapter when credentials and a concrete
-evaluation use case are available. Provider selection must not change core
-domain contracts.
+OpenAI is the first live provider. The SDK is an optional production extra and a
+development dependency for adapter tests. Other providers can be added behind
+`ModelProvider` when a concrete use case warrants them. Provider selection must
+not change core domain contracts.

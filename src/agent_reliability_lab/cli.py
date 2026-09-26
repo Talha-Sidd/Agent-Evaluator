@@ -1,6 +1,7 @@
 """Command-line entry points for deterministic evaluation."""
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -9,20 +10,31 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from agent_reliability_lab.agents.repopilot.model import (
+    REPOPILOT_PROMPT_VERSION,
+    REPOPILOT_SYSTEM_PROMPT,
+    RepoPilotModel,
+)
+from agent_reliability_lab.domain.model_gateway import ModelConfig
 from agent_reliability_lab.domain.models import Scenario
 from agent_reliability_lab.platform.evals.comparison import (
+    EVALUATOR_VERSION,
     compare_snapshots,
     create_snapshot,
     load_snapshot,
     save_snapshot,
 )
+from agent_reliability_lab.platform.evals.live import save_live_report
 from agent_reliability_lab.platform.evals.quality_gate import (
     QualityGate,
     QualityGateConfig,
     QualityGateResult,
 )
 from agent_reliability_lab.platform.evals.suite import EvaluationSuite, SuiteScorecard
+from agent_reliability_lab.platform.model_gateway import ModelGateway
 from agent_reliability_lab.platform.replay import ReplayRunner
+from agent_reliability_lab.platform.runner.runner import ScenarioRunner
+from agent_reliability_lab.platform.security import fingerprint
 from agent_reliability_lab.platform.storage.postgres import PostgresRunRepository, StorageError
 
 
@@ -68,6 +80,124 @@ def _run_compare(baseline: Path, candidate: Path, gate_config: Path, as_json: bo
         for violation in result.violations:
             print(f"Gate violation: {violation}")
     return 0 if result.passed else 1
+
+
+def _run_live_eval(
+    dataset: Path,
+    gate_config_path: Path,
+    baseline_path: Path,
+    output_path: Path,
+    model: str,
+    input_price: float,
+    output_price: float,
+    max_cost: float,
+    max_calls: int,
+    max_input_tokens: int,
+    max_output_tokens: int,
+    token_budget: int,
+) -> int:
+    if output_path.exists():
+        raise FileExistsError("live report already exists")
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise ValueError("OPENAI_API_KEY is required for live evaluation")
+    try:
+        from agent_reliability_lab.platform.providers.openai import OpenAIProvider
+    except ImportError:
+        raise ValueError("install the OpenAI extra with `uv sync --extra openai-live`") from None
+    gate_config = _load_gate_config(gate_config_path)
+    baseline = load_snapshot(baseline_path)
+    suite = EvaluationSuite(
+        agent=RepoPilotModel(),
+        runner=ScenarioRunner(
+            gateway=ModelGateway(
+                OpenAIProvider(),
+                ModelConfig(
+                    provider="openai",
+                    model=model,
+                    prompt_version=REPOPILOT_PROMPT_VERSION,
+                    system_prompt=REPOPILOT_SYSTEM_PROMPT,
+                    input_usd_per_million=input_price,
+                    output_usd_per_million=output_price,
+                    cost_budget_usd=max_cost,
+                    max_calls=max_calls,
+                    max_input_tokens=max_input_tokens,
+                    max_output_tokens=max_output_tokens,
+                    token_budget=token_budget,
+                ),
+            )
+        ),
+    )
+    scenarios = suite.load_jsonl(dataset)
+    expected = {
+        scenario.scenario_id: fingerprint(scenario.model_dump(mode="json"))
+        for scenario in scenarios
+    }
+    baseline_cases = {case.scenario_id: case for case in baseline.cases}
+    if (
+        baseline.evaluator_version != EVALUATOR_VERSION
+        or baseline.dataset_sha256 != fingerprint(expected)
+        or set(baseline_cases) != set(expected)
+        or any(
+            baseline_cases[key].scenario_sha256 != digest
+            or baseline_cases[key].fixture_sha256 != fingerprint(
+                next(item.repository_files for item in scenarios if item.scenario_id == key)
+            )
+            for key, digest in expected.items()
+        )
+    ):
+        raise ValueError("baseline must match the selected dataset and evaluator")
+    scorecard = suite.run(scenarios, dataset.stem)
+    gate = QualityGate(gate_config).evaluate(scorecard)
+    version = "openai-live-" + hashlib.sha256(
+        f"{model}:{REPOPILOT_PROMPT_VERSION}".encode()
+    ).hexdigest()[:12]
+    candidate = create_snapshot(scenarios, scorecard, version)
+    comparison = compare_snapshots(
+        baseline, candidate, gate_config
+    )
+    model_calls = [call for case in scorecard.cases for call in case.result.model_calls]
+    known_cost = sum(call.estimated_cost_usd or 0 for call in model_calls)
+    missing_cost = sum(call.executed and call.estimated_cost_usd is None for call in model_calls)
+    missing_usage = sum(
+        call.executed and (call.input_tokens is None or call.output_tokens is None)
+        for call in model_calls
+    )
+    successful_cases = scorecard.passed_cases
+    report = {
+        "schema_version": 1,
+        "provider": "openai",
+        "model": model,
+        "prompt_version": REPOPILOT_PROMPT_VERSION,
+        "dataset_sha256": hashlib.sha256(dataset.read_bytes()).hexdigest(),
+        "prices_usd_per_million_tokens": {
+            "input": input_price,
+            "output": output_price,
+            "source": "operator_configured",
+        },
+        "cost_budget_usd": max_cost,
+        "usage": {
+            "model_calls": len(model_calls),
+            "input_tokens": sum(call.input_tokens or 0 for call in model_calls),
+            "output_tokens": sum(call.output_tokens or 0 for call in model_calls),
+            "estimated_cost_usd_known": known_cost,
+            "calls_with_unknown_cost": missing_cost,
+            "calls_with_unknown_token_usage": missing_usage,
+            "successful_cases": successful_cases,
+            "estimated_cost_per_success_usd": (
+                known_cost / successful_cases if successful_cases and not missing_cost else None
+            ),
+        },
+        "scorecard": scorecard.model_dump(mode="json"),
+        "quality_gate": gate.model_dump(mode="json"),
+        "candidate_snapshot": candidate.model_dump(mode="json"),
+        "baseline_comparison": comparison.model_dump(mode="json"),
+    }
+    save_live_report(report, output_path)
+    print(f"Live evaluation: {scorecard.passed_cases}/{scorecard.total_cases} cases passed")
+    print(f"Estimated known cost: ${known_cost:.6f} USD ({missing_cost} calls unknown)")
+    print(f"Baseline comparison: {'PASSED' if comparison.passed else 'FAILED'}")
+    print(f"Report: {output_path}")
+    return 0 if gate.passed and comparison.passed else 1
 
 
 def _print_scorecard(scorecard: SuiteScorecard, gate: QualityGateResult) -> None:
@@ -142,6 +272,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     eval_parser.add_argument("--json", action="store_true", help="print the scorecard as JSON")
     eval_parser.add_argument("--snapshot", type=Path, help="write a new evaluation snapshot")
     eval_parser.add_argument("--agent-version", help="version label for the evaluated checkout")
+    live_parser = subparsers.add_parser(
+        "live-eval", help="run an opt-in OpenAI evaluation (uses API credits)"
+    )
+    live_parser.add_argument("--dataset", type=Path, default=Path("evals/datasets/repopilot_smoke.jsonl"))
+    live_parser.add_argument("--gate-config", type=Path, default=Path("evals/quality_gate.json"))
+    live_parser.add_argument("--baseline", type=Path, default=Path("evals/baselines/repopilot.json"))
+    live_parser.add_argument("--output", type=Path, required=True)
+    live_parser.add_argument("--model", required=True, help="OpenAI model ID")
+    live_parser.add_argument("--input-usd-per-million", type=float, required=True)
+    live_parser.add_argument("--output-usd-per-million", type=float, required=True)
+    live_parser.add_argument("--max-cost-usd", type=float, required=True,
+                             help="maximum estimated suite-wide model cost")
+    live_parser.add_argument("--max-model-calls", type=int, default=8)
+    live_parser.add_argument("--max-input-tokens", type=int, default=4096)
+    live_parser.add_argument("--max-output-tokens", type=int, default=512)
+    live_parser.add_argument("--token-budget", type=int, default=40000)
     compare_parser = subparsers.add_parser("compare", help="compare two evaluation snapshots")
     compare_parser.add_argument("--baseline", type=Path, required=True)
     compare_parser.add_argument("--candidate", type=Path, required=True)
@@ -168,6 +314,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.command == "compare":
             return _run_compare(args.baseline, args.candidate, args.gate_config, args.json)
+        if args.command == "live-eval":
+            return _run_live_eval(
+                args.dataset, args.gate_config, args.baseline, args.output, args.model,
+                args.input_usd_per_million, args.output_usd_per_million, args.max_cost_usd,
+                args.max_model_calls, args.max_input_tokens, args.max_output_tokens,
+                args.token_budget,
+            )
         if args.command == "replay" and args.replay_command == "create":
             return _run_replay_create(args.dataset, args.scenario_id, args.output, args.force)
         if args.command == "replay" and args.replay_command == "run":

@@ -114,12 +114,17 @@ def test_budget_rejected_before_provider_dispatch(overrides: dict[str, object], 
 
 
 def test_usage_contract_violation_is_recorded_and_fails() -> None:
-    result = ScenarioRunner(gateway=gateway((
-        ModelResponse(final_answer="done", input_tokens=5000, output_tokens=1),
-    ))).run(RepoPilotModel(), scenario())
+    selected = gateway((
+        ModelResponse(final_answer="done", input_tokens=20000, output_tokens=1),
+    ), cost_budget_usd=0.006)
+    runner = ScenarioRunner(gateway=selected)
+    result = runner.run(RepoPilotModel(), scenario())
     assert result.error_code is ErrorCode.MODEL_ERROR
-    assert result.model_calls[0].input_tokens == 5000
+    assert result.model_calls[0].input_tokens == 20000
     assert not result.model_calls[0].success
+    next_result = runner.run(RepoPilotModel(), scenario(scenario_id="next-case"))
+    assert next_result.error_code is ErrorCode.COST_BUDGET_EXCEEDED
+    assert not next_result.model_calls[0].executed
 
 
 def test_provider_failure_is_safe_and_preserves_prior_usage() -> None:
@@ -190,6 +195,22 @@ def test_budget_includes_prior_model_usage(overrides: dict[str, object], code: E
     )
     assert result.model_calls[0].success
     assert result.error_code is code and not result.model_calls[-1].executed
+
+
+def test_cost_ceiling_is_shared_across_suite_runs() -> None:
+    selected = ModelGateway(FakeProvider((
+        ModelResponse(final_answer="auth.py", input_tokens=100, output_tokens=10),
+    )), config(
+        input_usd_per_million=1.0, output_usd_per_million=2.0,
+        max_input_tokens=100, max_output_tokens=10, cost_budget_usd=0.0002,
+    ))
+    runner = ScenarioRunner(gateway=selected)
+    agent = RepoPilotModel()
+    first = runner.run(agent, scenario())
+    second = runner.run(agent, scenario(scenario_id="model-search-2"))
+    assert first.status is RunStatus.SUCCEEDED
+    assert second.error_code is ErrorCode.COST_BUDGET_EXCEEDED
+    assert not second.model_calls[0].executed
 
 
 def test_tool_step_limit_still_applies_to_model_loop() -> None:

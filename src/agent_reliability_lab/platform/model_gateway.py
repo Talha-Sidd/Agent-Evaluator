@@ -2,6 +2,7 @@
 
 import time
 from dataclasses import dataclass
+from threading import Lock
 
 from agent_reliability_lab.domain.errors import ToolExecutionError
 from agent_reliability_lab.domain.model_gateway import (
@@ -51,6 +52,8 @@ class ModelGateway:
     def __init__(self, provider: ModelProvider, config: ModelConfig) -> None:
         self.provider = provider
         self.config = ModelConfig.model_validate(config.model_dump())
+        self._reserved_cost_usd = 0.0
+        self._budget_lock = Lock()
 
     def record(self, request: ModelRequest) -> ModelCall:
         config = self.config
@@ -82,10 +85,14 @@ class ModelGateway:
             config.max_input_tokens * config.input_usd_per_million
             + config.max_output_tokens * config.output_usd_per_million
         ) / 1_000_000
-        if sum(c.estimated_cost_usd or 0 for c in prior) + reserved_cost > config.cost_budget_usd:
-            raise ToolExecutionError(ErrorCode.COST_BUDGET_EXCEEDED)
         if deadline <= time.monotonic():
             raise ToolExecutionError(ErrorCode.TIMEOUT)
+        with self._budget_lock:
+            if self._reserved_cost_usd + reserved_cost > config.cost_budget_usd:
+                raise ToolExecutionError(ErrorCode.COST_BUDGET_EXCEEDED)
+            # Reserve before provider dispatch. Failed or unknown-usage calls keep
+            # their reservation so another scenario cannot overspend the suite cap.
+            self._reserved_cost_usd += reserved_cost
         started = time.monotonic()
         try:
             process, connection = start_worker(_provider_worker, self.provider, request, config)
@@ -104,6 +111,11 @@ class ModelGateway:
                     response.input_tokens * config.input_usd_per_million
                     + response.output_tokens * config.output_usd_per_million
                 ) / 1_000_000
+                # Account for provider usage that contradicts its configured cap;
+                # later suite scenarios must not spend against an understated reserve.
+                if call.estimated_cost_usd > reserved_cost:
+                    with self._budget_lock:
+                        self._reserved_cost_usd += call.estimated_cost_usd - reserved_cost
                 call.response_sha256 = fingerprint(response.model_dump())
                 if (
                     response.input_tokens > config.max_input_tokens

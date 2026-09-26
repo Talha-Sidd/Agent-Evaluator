@@ -49,23 +49,45 @@ versioned synthetic fixture in `tests/fixtures/performance_samples.json` checks
 the aggregation method. These are observations, not release gates; no latency
 threshold is set without a documented performance baseline.
 
-Live model providers are the next integration milestone.
+OpenAI is available through the explicit `arl live-eval` command. The normal
+evaluation and CI paths do not make provider calls; see the roadmap below for
+live setup and cost controls.
+
 Adapters and tool handlers run in supervised Python worker processes so timeouts
 can stop execution. This is lifecycle isolation for trusted code, not an OS
 security sandbox. API results use bounded in-memory retention by default.
 
 ## Roadmap: real LLM evaluation
 
-The provider-neutral gateway and model-backed RepoPilot adapter are implemented
-and tested with a fake provider. The parent runner dispatches model calls through
-supervised workers and enforces per-run call, token, estimated-cost, and time
-limits. The next milestone is an opt-in live-model evaluation over the same versioned scenarios and
-fixture fingerprints as the deterministic baseline. It will record provider and
-model identity, prompt version, token usage, estimated cost, latency, and
-trajectory outcomes. Live calls will remain separate from normal unit tests and
-CI. Cost or latency release gates will wait until repeated measurements produce
-a documented baseline. See [the LLM evaluation roadmap](docs/LLM_EVALUATION_ROADMAP.md)
-for the planned sequence and acceptance criteria.
+The provider-neutral gateway and model-backed RepoPilot adapter are tested with
+a fake provider. The OpenAI Responses API adapter and opt-in `arl live-eval`
+command run the model-backed agent against the same dataset and reviewed baseline.
+Reports include model and prompt versions, usage, estimated cost, latency,
+trajectory, the quality gate, and per-case baseline comparisons. The parent
+enforces per-run call, token, and time limits and reserves cost against one
+suite-wide ceiling. No live request or billing result has been verified; prices
+are provided by the operator. Ordinary `arl eval` and CI remain deterministic
+and make no provider calls. See [the LLM evaluation roadmap](docs/LLM_EVALUATION_ROADMAP.md)
+for setup and limits.
+
+For PowerShell, set the key in the current session and supply a model ID,
+operator-configured input/output prices per million tokens, a suite cost ceiling,
+and a new report path:
+
+```powershell
+$env:OPENAI_API_KEY = "..."
+uv sync --locked
+uv run --locked arl live-eval --model YOUR_MODEL_ID `
+  --input-usd-per-million YOUR_INPUT_PRICE `
+  --output-usd-per-million YOUR_OUTPUT_PRICE `
+  --max-cost-usd 0.25 --output reports/openai-live.json
+```
+
+For a runtime-only install, use `uv sync --no-dev --extra openai-live --locked`.
+
+The selected dataset's task text and repository fixtures are sent to OpenAI.
+The default dataset contains synthetic fixtures; review replacement datasets
+before running the live command. Reports do not overwrite earlier evidence.
 
 Python callers can use `EvaluationSuite(agent=RepoPilotModel(),
 runner=ScenarioRunner(gateway=ModelGateway(provider, config)))`. Model-backed
