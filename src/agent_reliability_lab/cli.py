@@ -277,7 +277,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     live_parser.add_argument("--dataset", type=Path, default=Path("evals/datasets/repopilot_smoke.jsonl"))
     live_parser.add_argument("--gate-config", type=Path, default=Path("evals/quality_gate.json"))
-    live_parser.add_argument("--baseline", type=Path, default=Path("evals/baselines/repopilot.json"))
+    live_parser.add_argument(
+        "--baseline", type=Path, default=Path("evals/baselines/repopilot-starter-v2.json")
+    )
     live_parser.add_argument("--output", type=Path, required=True)
     live_parser.add_argument("--model", required=True, help="OpenAI model ID")
     live_parser.add_argument("--input-usd-per-million", type=float, required=True)

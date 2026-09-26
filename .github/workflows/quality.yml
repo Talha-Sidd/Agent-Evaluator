@@ -99,7 +99,7 @@ jobs:
       - name: Compare with reviewed baseline
         run: >-
           uv run --locked arl compare
-          --baseline evals/baselines/repopilot.json --candidate reports/candidate.json
+          --baseline evals/baselines/repopilot-starter-v2.json --candidate reports/candidate.json
           --json > reports/comparison.json
       - name: Replay frozen scenario
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}

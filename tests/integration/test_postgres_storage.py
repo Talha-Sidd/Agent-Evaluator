@@ -65,7 +65,7 @@ def test_migration_restart_ownership_and_trace() -> None:
             "SELECT owner, agent_version, evaluator_version FROM stored_runs WHERE run_id = %s",
             (run_id,),
         ).fetchone()
-        assert persisted == ("alice", "repopilot-demo-v1", "starter-v1")
+        assert persisted == ("alice", "repopilot-demo-v1", "starter-v2")
         connection.execute("TRUNCATE stored_runs CASCADE")
 
 

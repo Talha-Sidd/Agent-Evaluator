@@ -42,7 +42,7 @@ def test_external_agent_runs_its_own_tools_and_scenarios() -> None:
     assert scorecard.passed_cases == 3
     assert scorecard.total_cases == 3
     comparison = compare_snapshots(
-        load_snapshot(ROOT / "examples/external_calculator/baseline.json"),
+        load_snapshot(ROOT / "examples/external_calculator/baseline-starter-v2.json"),
         create_snapshot(scenarios, scorecard, "external-calculator-test"),
         QualityGateConfig.model_validate_json((ROOT / "evals/quality_gate.json").read_text()),
     )

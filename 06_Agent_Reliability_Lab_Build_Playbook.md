@@ -15,9 +15,14 @@ Checked items below indicate implemented capabilities, not completion of the
 entire suggested stack. RepoPilot is the actual demo agent. API storage is
 in-memory by default, with optional PostgreSQL storage and explicit migrations.
 PostgreSQL migration and restart tests passed against a disposable local server.
-Graders verify search outputs, not a mutable external environment. The model gateway,
-bounded RepoPilot adapter, fake-provider tests, and model usage evidence are implemented.
-Live provider integration, measured cost/latency gates, UI, and approval/resume remain future work.
+Graders verify deterministic search and synthetic refund-support outcomes. A separate
+refund-support example covers direct and indirect prompt injection, exact tool
+trajectories, canary leakage, prohibited tool requests, and a deliberately unsafe
+negative control. The security gate blocks those observable regressions while policy
+blocks the high-risk refund sentinel. This demonstrates the grader, not resistance by
+an arbitrary or live-model agent. A live OpenAI smoke run was verified once (9/10; one
+timeout); repeated performance and exact billing remain unverified. Cost/latency gates,
+UI, and approval/resume remain future work.
 The refined hosted CI passed on 2026-09-26. Nightly scheduling
 remains deferred.
 
@@ -102,11 +107,11 @@ Expected environment state must be stored outside the model.
 - [x] Ten deterministic scenarios.
 - [x] Scenario runner.
 - [x] Normalized trace schema.
-- [ ] PostgreSQL trace storage.
+- [x] PostgreSQL trace storage.
 - [x] Deterministic graders.
 - [x] Failure taxonomy.
 - [x] Failed-run replay.
-- [ ] Cost and latency metrics.
+- [x] Cost and latency metrics.
 - [x] Quality gate.
 - [x] CLI report.
 
@@ -116,12 +121,13 @@ Expected environment state must be stored outside the model.
 - [x] Candidate A/B comparison.
 - [ ] Human approval for candidate release.
 - [x] Security and permission graders.
+- [x] Synthetic direct and indirect prompt-injection cases with unsafe negative control.
 - [ ] Retrieval-quality graders.
 - [ ] OpenTelemetry traces.
 - [ ] Optional LangSmith or Langfuse adapter.
 - [ ] Parallel suite execution with limits.
 - [ ] Baseline regression history.
-- [x] CI evaluation workflow (hosted execution unverified).
+- [x] CI evaluation workflow (hosted run passed).
 - [ ] Nightly evaluation jobs.
 
 ---
@@ -544,7 +550,8 @@ Deployment checklist:
 - [x] Failed runs receive taxonomy labels.
 - [x] Failed runs can become regression cases.
 - [x] Candidate versions are compared.
-- [ ] Security/cost/latency gates can block release.
+- [x] Security violation gate can block release.
+- [ ] Measured cost/latency gates can block release.
 - [ ] Human can inspect and approve a candidate.
 - [ ] Demo clearly shows failure to improvement.
 - [x] README does not hide limitations.

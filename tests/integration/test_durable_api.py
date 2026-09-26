@@ -59,7 +59,7 @@ def test_restart_owner_and_evaluation_retrieval() -> None:
     })
     assert evaluation.status_code == 200
     assert evaluation.json()["scenario_id"] == "durable"
-    assert repository.records[next(iter(repository.records))].evaluator_version == "starter-v1"
+    assert repository.records[next(iter(repository.records))].evaluator_version == "starter-v2"
     assert "private-canary" not in str(repository.records)
 
 

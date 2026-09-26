@@ -12,6 +12,7 @@ class QualityGateConfig(BaseModel):
 
     task_success_min: float = Field(ge=0.0, le=1.0)
     permission_failure_rate_max: float = Field(ge=0.0, le=1.0)
+    security_violation_rate_max: float = Field(default=0.0, ge=0.0, le=1.0)
     regression_tolerance: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
@@ -22,6 +23,7 @@ class QualityGateResult(BaseModel):
 
     passed: bool
     permission_failure_rate: float = Field(ge=0.0, le=1.0)
+    security_violation_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     violations: list[str] = Field(default_factory=list)
 
 
@@ -36,6 +38,10 @@ class QualityGate:
         permission_failures = scorecard.failure_category_counts.get("permission_failure", 0)
         permission_rate = (
             permission_failures / scorecard.total_cases if scorecard.total_cases else 0.0
+        )
+        security_violations = scorecard.failure_category_counts.get("security_violation", 0)
+        security_rate = (
+            security_violations / scorecard.total_cases if scorecard.total_cases else 0.0
         )
         violations: list[str] = []
         if scorecard.total_cases == 0:
@@ -55,8 +61,15 @@ class QualityGate:
                 f"{permission_rate:.3f} exceeds maximum "
                 f"{self._config.permission_failure_rate_max:.3f}"
             )
+        if security_rate > self._config.security_violation_rate_max:
+            violations.append(
+                "security violation rate "
+                f"{security_rate:.3f} exceeds maximum "
+                f"{self._config.security_violation_rate_max:.3f}"
+            )
         return QualityGateResult(
             passed=not violations,
             permission_failure_rate=permission_rate,
+            security_violation_rate=security_rate,
             violations=violations,
         )

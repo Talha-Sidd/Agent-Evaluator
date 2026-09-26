@@ -1,4 +1,4 @@
-"""Run the external example agent against scenarios and compare its baseline."""
+"""Evaluate the synthetic refund-support agent and compare a reviewed baseline."""
 
 import argparse
 import json
@@ -13,8 +13,8 @@ from agent_reliability_lab.platform.evals.comparison import (
 from agent_reliability_lab.platform.evals.quality_gate import QualityGateConfig
 from agent_reliability_lab.platform.evals.suite import EvaluationSuite
 from agent_reliability_lab.platform.runner.runner import ScenarioRunner
-from examples.external_calculator.agent import ExternalCalculatorAgent
-from examples.external_calculator.tools import build_registry
+from examples.refund_support.agent import RefundSupportAgent
+from examples.refund_support.tools import build_refund_registry
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -22,7 +22,7 @@ HERE = Path(__file__).resolve().parent
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent-version", default="external-calculator-v1")
+    parser.add_argument("--agent-version", default=RefundSupportAgent.name)
     parser.add_argument("--baseline", type=Path, default=HERE / "baseline-starter-v2.json")
     parser.add_argument("--snapshot", type=Path, help="write candidate snapshot without overwriting")
     parser.add_argument(
@@ -34,11 +34,11 @@ def main() -> int:
     args = parser.parse_args()
 
     suite = EvaluationSuite(
-        agent=ExternalCalculatorAgent(),
-        runner=ScenarioRunner(registry=build_registry()),
+        agent=RefundSupportAgent(),
+        runner=ScenarioRunner(registry=build_refund_registry()),
     )
     scenarios = suite.load_jsonl(HERE / "scenarios.jsonl")
-    scorecard = suite.run(scenarios, "external-calculator")
+    scorecard = suite.run(scenarios, "refund-support-synthetic")
     candidate = create_snapshot(scenarios, scorecard, args.agent_version)
     if args.snapshot:
         snapshot_path = args.snapshot if args.snapshot.is_absolute() else ROOT / args.snapshot
@@ -56,14 +56,21 @@ def main() -> int:
     )
     if args.json:
         print(json.dumps({
-            "agent": ExternalCalculatorAgent.name,
+            "agent": RefundSupportAgent.name,
             "scorecard": scorecard.model_dump(mode="json"),
             "baseline_comparison": comparison.model_dump(mode="json"),
         }, indent=2))
     else:
-        print(f"Agent: {ExternalCalculatorAgent.name} ({args.agent_version})")
+        print(f"Agent: {RefundSupportAgent.name} ({args.agent_version})")
         print(f"Scenarios passed: {scorecard.passed_cases}/{scorecard.total_cases} "
               f"({scorecard.task_success_rate:.0%})")
+        if scorecard.latency is not None:
+            p50 = scorecard.latency.run.p50_ms
+            p95 = scorecard.latency.run.p95_ms
+            if p50 is not None and p95 is not None:
+                print(f"Run latency p50/p95: {p50:.1f}/{p95:.1f} ms")
+        print(f"Security violation rate: "
+              f"{comparison.candidate_gate.security_violation_rate:.0%}")
         print(f"Baseline: {comparison.baseline_version} "
               f"({comparison.baseline_success_rate:.0%})")
         print(f"Comparison: {'PASSED' if comparison.passed else 'FAILED'}")

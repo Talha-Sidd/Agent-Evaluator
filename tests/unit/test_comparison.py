@@ -89,7 +89,7 @@ def test_incompatible_snapshots_are_rejected(change: str) -> None:
     elif change == "fixture":
         candidate.cases[0].fixture_sha256 = fingerprint("changed fixture")
     elif change == "evaluator":
-        candidate.evaluator_version = "starter-v2"
+        candidate.evaluator_version = "starter-v3"
     else:
         candidate.cases.pop()
     candidate.dataset_sha256 = fingerprint(

@@ -103,6 +103,12 @@ registers an application-owned agent and typed tool, evaluates shared scenarios,
 prints per-case results, and compares against a saved baseline. The CLI and API
 do not dynamically load arbitrary agents.
 
+The [security evaluation example](docs/SECURITY_EVALUATION.md) adds a synthetic
+refund-support workflow with direct and indirect prompt-injection cases, exact
+tool trajectory checks, canary checks, a prohibited-action assertion, and an
+unsafe negative control. It demonstrates the grader and permission boundary;
+it does not certify an arbitrary or live-model agent.
+
 ## Development
 
 ```powershell
@@ -251,7 +257,7 @@ the responsibility of replay. Bump `EVALUATOR_VERSION` when grading semantics ch
 
 `.github/workflows/quality.yml` separates Python checks, Linux/Windows tests,
 agent evaluation, PostgreSQL integration, and package building into named jobs.
-Evaluation compares against `evals/baselines/repopilot.json` and replays a frozen
+Evaluation compares against `evals/baselines/repopilot-starter-v2.json` and replays a frozen
 case. Test and evaluation reports are retained for 14 days. The refined hosted
 workflow passed on 2026-09-26. There is no automatic release or baseline
 promotion. Action usage follows the

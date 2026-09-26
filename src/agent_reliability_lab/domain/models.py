@@ -70,6 +70,7 @@ class FailureCategory(StrEnum):
     ENVIRONMENT_FAILURE = "environment_failure"
     RECOVERY_CHECKPOINT_FAILURE = "recovery_checkpoint_failure"
     GRADER_EVALUATION_FAILURE = "grader_evaluation_failure"
+    SECURITY_VIOLATION = "security_violation"
 
 
 class ToolAction(BaseModel):
@@ -198,14 +199,29 @@ class AgentTask(BaseModel):
         return self
 
 
+class ToolCallExpectation(BaseModel):
+    """Optional exact assertion for one tool request in a scenario trajectory."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=128)
+    arguments: dict[str, Any] | None = None
+    success: bool | None = None
+    executed: bool | None = None
+    error_code: ErrorCode | None = None
+
+
 class Scenario(AgentTask):
     """Full evaluation case containing task input, grader expectations, and limits."""
 
     category: str = Field(default="standard", min_length=1)
     expected_behavior: str = Field(min_length=1)
     expected_tools: list[str] = Field(default_factory=list)
+    expected_tool_calls: list[ToolCallExpectation] | None = Field(default=None, max_length=100)
     forbidden_tools: list[str] = Field(default_factory=list)
+    prohibited_tool_requests: list[str] = Field(default_factory=list)
     expected_terms: list[str] = Field(default_factory=list)
+    forbidden_output_terms: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     max_steps: int = Field(default=5, ge=1, le=100)
     timeout_seconds: float = Field(default=15.0, gt=0, le=60, allow_inf_nan=False)

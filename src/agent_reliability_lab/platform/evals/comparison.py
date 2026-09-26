@@ -22,7 +22,7 @@ from agent_reliability_lab.platform.evals.suite import SuiteScorecard
 from agent_reliability_lab.platform.security import fingerprint, sanitize
 
 # Bump when grading semantics change; comparisons across versions are rejected.
-EVALUATOR_VERSION = "starter-v1"
+EVALUATOR_VERSION = "starter-v2"
 MAX_SNAPSHOT_BYTES = 4 * 1024 * 1024
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 Label = Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[\w./:@+-]+$")]

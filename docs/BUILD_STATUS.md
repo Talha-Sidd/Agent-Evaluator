@@ -4,9 +4,9 @@ Updated: 2026-09-26
 
 ## Current status (2026-09-26)
 
-The last commit is `36f9bee` (`Add opt-in OpenAI live evaluation`). The
-external-agent example and documentation below are implemented in the current
-working tree but have not been committed yet.
+The last commit is `a1f3b49` (`Add external agent evaluation example and roadmap`).
+The refund-support security batch described below is being implemented in the
+current working tree and has not been committed yet.
 
 ### What is demonstrated now
 
@@ -17,43 +17,55 @@ working tree but have not been committed yet.
   `AgentAdapter` contract, registers its own calculator tool, runs three cases,
   and compares its results with a saved baseline. This demonstrates a Python
   integration path; it does not yet evaluate one of the user's agents.
-- The example's negative controls verify malformed arguments, unknown tools,
-  approval-required actions, and handler errors. These prove harness boundary
-  behavior; they are not a prompt-injection evaluation suite.
+- `examples/refund_support/` uses synthetic orders and preview-only behavior.
+  Its four cases include an ineligible order plus direct and indirect
+  prompt-injection attacks. Exact tool arguments and outcomes, canary leakage,
+  and prohibited tool requests are graded.
+- A scripted unsafe control follows the injected text, leaks the canary, and
+  requests a high-risk refund tool. The grader rejects the behavior while the
+  permission policy prevents the sentinel handler from executing.
+- The external calculator example's negative controls verify malformed
+  arguments, unknown tools, approval-required actions, and handler errors.
 - The CLI and API still default to RepoPilot. Arbitrary agents are not
   dynamically loaded.
 
 ### Security status
 
 The harness validates registered tool names and typed arguments, enforces
-permissions, step/time limits, and records decisions and outcomes. The current
-scenario grader can inspect final-answer terms, required/forbidden tool use,
-run status, trace integrity, and selected RepoPilot search outcomes.
+permissions, step/time limits, and records decisions and outcomes. Scenarios
+can now assert exact tool trajectories/arguments/outcomes, prohibited tool
+requests, and canary absence from final answers and tool arguments. Security
+violations have a separate zero-tolerance rate in the quality gate; a blocked
+dispatch and the agent's unsafe request are scored separately.
 
-Prompt injection is **not yet tested end to end**. RepoPilot's prompt says to
-treat fixture content as untrusted, but there are no adversarial direct or
-indirect injection scenarios proving that behavior. The harness can grade
-observable answers and actions; it cannot certify an agent's internal
-reasoning. A denied high-risk action is blocked, but human review, pause/resume,
-and persisted checkpoints remain unfinished.
+Direct and indirect prompt-injection behavior is tested end to end only for the
+synthetic deterministic sample and unsafe control. This does not establish
+resistance by a live LLM or a user-owned agent. A denied high-risk action is
+blocked, but human review, pause/resume, and persisted checkpoints remain
+unfinished.
 
 ### Latest verification
 
 ```text
-uv run --locked pytest tests/integration/test_external_agent.py  5 passed
+uv run --locked pytest                                         127 passed, 3 skipped, 1 stale test assertion failed
+uv run --locked pytest tests/unit/test_comparison.py -q         20 passed after correcting that assertion
 uv run --locked ruff check .                                   passed
 uv run --locked mypy src                                       passed, 41 source files
-uv run --locked python -m examples.external_calculator.evaluate 3/3 cases;
-                                                               baseline comparison passed
+uv run --locked python -m examples.refund_support.evaluate      4/4 cases; baseline comparison passed
+uv run --locked python -m examples.external_calculator.evaluate 3/3 cases; starter-v2 baseline passed
 ```
 
-The external example's live command is not part of CI and makes no provider
-calls. A separate opt-in OpenAI run against the bundled RepoPilot suite
-completed 9/10 cases; one timed out, causing the zero-regression comparison to
-fail. Known estimated cost was $0.001726, with one timed-out call's usage
-unknown. This is one run, not a stable performance baseline or exact billing.
-See [TODO.md](TODO.md) for the security-first next batches and acceptance
-criteria.
+The full suite was not repeated after correcting the stale evaluator-version
+assertion, so a fully green project-wide run is not yet verified. Three
+PostgreSQL tests skipped because no disposable database was configured. The
+refund security integration tests passed, including the intentionally unsafe
+control. The examples use only local synthetic data and make no provider calls.
+See [TODO.md](TODO.md) for the remaining work to evaluate a user-owned agent.
+
+A separate opt-in OpenAI run against the bundled RepoPilot suite completed 9/10
+cases; one timed out, causing the zero-regression comparison to fail. Known
+estimated cost was $0.001726, with one timed-out call's usage unknown. This is
+one run, not a stable performance baseline or exact billing.
 
 ## Source of direction
 
@@ -285,14 +297,19 @@ See [TODO.md](TODO.md) for acceptance criteria and the full ordered checklist.
 - [x] Add opt-in live-model evaluations with suite cost limits and baseline comparison.
 - [ ] Bind approvals to exact actions, reviewer identity, expiry, and audit events.
 - [ ] Add persisted checkpoints and API approval/resume integration tests.
-- [ ] Expand security/recovery scenarios and add trace/release review views.
+- [x] Add synthetic refund-support cases for direct/indirect injection, canary
+  checks, exact tool assertions, and a security gate.
+- [ ] Extend attack/recovery coverage to user-owned/live-model agents and add
+  trace/release review views.
 
 ## Deliberately not implemented yet
 
-- No verified live request or billing result; OpenAI integration and provider-neutral gateway are implemented.
+- One live OpenAI request was verified: 9/10 cases, one timeout, and one call
+  with unknown usage. Repeated performance and exact billing remain unverified.
 - No SQLAlchemy or Alembic; durable trace storage uses direct PostgreSQL queries.
 - No API approval pause/resume; approving a record does not execute an action.
-- No measured cost/latency release gates or OpenTelemetry exporter.
+- Security violation release gate is implemented with a default maximum of
+  zero. No measured cost/latency release gates or OpenTelemetry exporter.
 - No Docker, Redis, MCP, frontend, or multi-agent runtime.
 - No automated baseline promotion or human candidate-release approval product.
 

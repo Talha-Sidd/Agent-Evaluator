@@ -29,7 +29,7 @@ uv run --locked python -m examples.external_calculator.evaluate `
 
 Snapshots do not contain task text, fixture contents, final answers, or raw
 tool arguments, and snapshot creation never overwrites an existing file. The
-committed baseline is `examples/external_calculator/baseline.json`.
+committed baseline is `examples/external_calculator/baseline-starter-v2.json`.
 
 Integration tests also send malformed arguments, an unknown tool, an
 approval-required tool, and a tool handler error through the runner. They
@@ -63,3 +63,6 @@ LangGraph, LangChain, hosted HTTP agents, and other runtimes need a small
 adapter for their invocation and tool model. The CLI and API still default to
 RepoPilot; this example shows how to evaluate another agent from Python
 without changing the core package.
+
+For adversarial examples and security-check semantics, see
+[SECURITY_EVALUATION.md](SECURITY_EVALUATION.md).

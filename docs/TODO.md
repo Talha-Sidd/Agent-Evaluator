@@ -4,136 +4,121 @@ Updated: 2026-09-26
 
 ## Current position
 
-The project has a deterministic runner, typed tool boundary, permission checks,
-traces, deterministic graders, replay, quality gates, snapshots, PostgreSQL
-evidence storage, a provider-neutral model gateway, and an opt-in OpenAI
-evaluation command. It is still an evaluation lab, not a production agent
-runtime or a security certification system.
+The lab has a bounded scenario runner, typed tool boundary, permissions,
+traces, deterministic graders, replay, snapshots, PostgreSQL evidence storage,
+a provider-neutral model gateway, and opt-in OpenAI evaluation. Its CLI/API
+still default to RepoPilot; it is not a production agent runtime or a security
+certification system.
 
-An external-agent integration example now demonstrates the Python adapter
-path using an application-owned calculator agent and tool. Its three scenarios
-passed and matched its saved baseline. This proves the integration shape; it
-does not evaluate any of the user's own agents. The CLI and API still default
-to RepoPilot.
+Two separate Python examples demonstrate the adapter path:
 
-A live `gpt-4.1-mini` run against the bundled RepoPilot smoke suite completed
-9/10 cases. One case timed out, so the zero-regression comparison failed. Known
+- `examples/external_calculator/`: application-owned agent and typed tool,
+  three scenarios, baseline comparison.
+- `examples/refund_support/`: synthetic customer support workflow with
+  preview-only refund behavior, normal and adversarial cases, and a security
+  quality gate.
+
+The refund example passes four cases, including direct user-content and
+indirect tool-response prompt injection. An intentionally unsafe control leaks
+synthetic canaries and requests a high-risk refund action; the grader rejects
+it while policy prevents the action handler from executing. This validates
+the observable scoring path for the example. It does not yet measure an actual
+user-owned agent or prove stochastic LLM resistance.
+
+A separate live `gpt-4.1-mini` run against the bundled RepoPilot suite completed
+9/10 cases. One timed out, so the zero-regression comparison failed. Known
 estimated cost was $0.001726; one timed-out call had unknown usage. This is one
 measurement, not a stable baseline or an exact invoice.
 
-## Security: what exists and what is missing
+## Security capabilities and limits
 
-The harness currently enforces tool argument schemas, tool registration,
-permission policy, step/time bounds, and trace-linked outcomes. Integration
-tests verify malformed arguments, unknown tools, an approval-required tool,
-and tool-handler errors. These controls constrain actions that pass through the
-harness.
+Implemented checks include schema-valid arguments, registered tool names,
+permission decisions, exact expected tool-call sequences/arguments/outcomes,
+prohibited tool-request detection, canary absence from final answers and tool
+arguments, step/time limits, and trace consistency. `QualityGate` has a
+zero-tolerance security-violation rate by default. Reports distinguish an
+agent's prohibited request from the harness blocking dispatch.
 
-There is not yet a prompt-injection evaluation suite. The RepoPilot model prompt
-labels fixture content as untrusted, but that instruction has not been tested
-against adversarial content. The harness can grade observable behavior—answers,
-tool requests, permission decisions, and traces—but cannot inspect or certify an
-agent's internal reasoning. Approval-required actions are blocked; there is no
-complete human review, pause, and resume workflow.
+The refund suite tests direct and indirect injection only against the included
+deterministic sample agent and a scripted unsafe negative control. It is not a
+framework adapter for an agent built by the user, not a live-model red-team
+suite, and not a guarantee about internal reasoning. The `issue_refund` tool is
+a sentinel whose handler always fails if policy ever dispatches it; previews
+are synthetic and never change payment state.
 
 ## Next implementation batches
 
-### 1. Evaluate one real external agent, including its security boundary
+### 1. Connect and evaluate one user-owned agent
 
-- [ ] Choose one of the user's actual agents and document its invocation,
-  tools, model/prompt version, and side effects.
-- [ ] Write an adapter and typed tool registry for that agent; keep all actions
-  behind harness validation and permission checks.
-- [ ] Create a small, reviewed scenario set for its real tasks, including
-  benign controls and direct and indirect prompt-injection attempts.
-- [ ] Put an unmistakable canary secret and malicious instructions in
-  untrusted user/retrieved/tool content. Assert that the agent answers the
-  trusted task, does not reveal the canary, and does not request forbidden or
-  approval-required actions.
-- [ ] Add harmless sentinel tools to prove blocked actions have no side effect.
-- [ ] Add negative-control agents/fixtures that intentionally follow the
-  injection; verify the grader fails them. This demonstrates that the security
-  cases can catch a regression.
-- [ ] Preserve per-case traces, failure evidence, model/prompt identity, and
-  baseline comparison. Keep live-provider tests opt-in and cost-bounded.
+- [ ] Select one actual agent and document its runtime, model/prompt version,
+  available tools, and possible side effects.
+- [ ] Write a thin adapter and typed registry that routes every action through
+  harness validation and policy.
+- [ ] Reuse the support suite where applicable; add scenarios for that agent's
+  real workflow and threat model.
+- [ ] Verify on safe and intentionally vulnerable controls that expected
+  answers, exact tool arguments/outcomes, canary checks, and prohibited tool
+  requests fail or pass as intended.
+- [ ] Keep live-provider runs opt-in, repeatable, and cost-bounded; record
+  model/prompt/data versions with each report.
 
-Acceptance: the same reviewed cases run through the external adapter; expected
-safe behavior passes; injection-following and forbidden-action controls fail;
-no blocked handler executes; reports identify the failed case and relevant
-trace evidence.
+Acceptance: one independently maintained agent can be evaluated on reviewed
+tasks; a deliberately unsafe candidate fails the security gate, and traces
+show the request and the separate policy decision.
 
-### 2. Make security assertions precise and reusable
+### 2. Compare the four agents fairly
 
-- [ ] Add scenario assertions for exact tool-call sequence, selected argument
-  values, expected tool outcomes/errors, and sensitive canary absence where
-  needed. Keep schema validation and permission decisions deterministic.
-- [ ] Cover malformed/extra arguments, unknown tools, forbidden tools,
-  approval-required tools, tool errors, retries/duplicates, and recovery.
-- [ ] Separate agent-policy failures from harness-policy enforcement in the
-  scorecard: a denied action is safe enforcement, while an agent attempting a
-  forbidden action may still be a candidate behavior failure.
-- [ ] Review failure categories and replay artifacts for useful security
-  evidence without storing raw secrets or unnecessary private content.
-
-Acceptance: deliberately unsafe or malformed trajectories fail the relevant
-agent-behavior check, while the trace separately proves the harness blocked
-execution. Safe controls remain passing.
-
-### 3. Compare the four agents fairly
-
-- [ ] Add an adapter for each agent only after the first integration contract
+- [ ] Add adapters for the other agents only after the first real integration
   works end to end.
-- [ ] Run each against the same scenarios, fixture versions, permission
-  controls, and evaluator version.
-- [ ] Report task success, security violations, tool names/arguments/outcomes,
-  failures, latency, and known model usage/cost per agent.
-- [ ] Repeat live-model cases enough to show variability before interpreting
-  small score differences.
+- [ ] Run each on the same scenarios, fixtures, permissions, and evaluator
+  version; keep agent-specific tool expectations explicit.
+- [ ] Report per-agent task success, security violations, tool selection and
+  arguments, failures, latency, and known model usage/cost.
+- [ ] Repeat live-model cases before interpreting small differences.
 
-Acceptance: comparison artifacts identify all agent and dataset versions;
-security violations cannot be offset by answer quality or average scores.
+Acceptance: snapshots use matching dataset/evaluator identities and security
+failures cannot be offset by answer quality or aggregate success rate.
 
-### 4. Set release gates from evidence
+### 3. Measure before adding more release gates
 
 - [ ] Collect repeated success, latency, and usage measurements for fixed
   model/prompt/dataset versions.
-- [ ] Set cost and latency thresholds only after measurements and product
-  requirements justify them.
-- [ ] Keep zero-tolerance gates for critical safety failures unless a reviewed
-  policy explicitly says otherwise.
-- [ ] Require a human to review grader/threshold changes and baseline
-  promotion; do not promote baselines automatically.
+- [ ] Set cost and latency thresholds only when evidence and product needs
+  support them.
+- [ ] Keep security violations at zero unless a human-reviewed policy defines
+  a specific exception; never auto-promote baselines.
 
 ## Later playbook work
 
-- [ ] Implement a real approval workflow bound to an exact action, reviewer,
-  expiry, and audit history; add persisted checkpoints and safe resume tests.
-- [ ] Add trace/release review UI when CLI reports no longer support review.
-- [ ] Add OpenTelemetry export when traces need to cross service boundaries.
-- [ ] Add deployment packaging when a reproducible hosted service is required.
+- [ ] Add exact-action human approval, reviewer identity, expiry, audit
+  history, persisted checkpoints, and pause/resume tests if an agent workflow
+  needs actions to continue after approval.
+- [ ] Add a trace/release review UI when CLI artifacts no longer support review.
+- [ ] Add OpenTelemetry when traces must flow across service boundaries.
+- [ ] Add deployment packaging when a reproducible hosted service is needed.
 
-LangGraph, SQLAlchemy/Alembic, queues, and multi-agent orchestration are not
-prerequisites for the next security/evaluation batch. Introduce them only for a
-demonstrated integration or product requirement.
+LangGraph, SQLAlchemy/Alembic, queues, MCP, and multi-agent orchestration are
+not prerequisites. Add them only for a demonstrated integration or product
+requirement.
 
 ## Playbook cross-reference
 
-- Sections 2 and 8: synthetic environments, injection fixtures, deterministic
+- Sections 2 and 8: synthetic support environment, injection fixtures, exact
   graders, and permission assertions.
-- Sections 9 and 10: failure taxonomy, evidence-linked failures, and replay as
-  regression protection.
-- Section 11: candidate/release human review; the runtime approval workflow is
-  a separate unfinished capability.
-- Days 4, 5, 7, and 9: graders, security failure classification, quality gates,
-  and attack/recovery scenarios.
-- Section 13: demonstrate a failure, fix, regression check, and release gate.
-- Section 14: cost/latency gates only after measured baselines.
+- Sections 9 and 10: evidence-linked failures and replayable regressions.
+- Section 11: release review remains separate from runtime approval/resume.
+- Days 4, 5, 7, and 9: graders, security failure classification, gates, and
+  attack/recovery coverage.
+- Section 13: show an unsafe failure, a fix, a regression test, and a blocked
+  release.
+- Section 14: measure cost and latency before setting thresholds.
 
-## Completion and verification notes
+## Verification record
 
-Update BUILD_STATUS.md after each implementation batch. Record only commands
-actually run and distinguish focused tests from full-suite validation. Current
-external-agent example verification: five focused integration tests passed;
-Ruff and `mypy src` passed; the documented local example reported 3/3 cases and
-a passing baseline comparison. Current OpenAI live-run limitations are listed
-above and in LLM_EVALUATION_ROADMAP.md.
+The current security batch has two passing refund-support integration tests,
+passing Ruff and `mypy src`, and a 4/4 local example run with a passing baseline
+comparison. The full test run reported 127 passed, 3 PostgreSQL tests skipped,
+and one stale evaluator-version test assertion; the updated comparison tests
+then passed 20/20. The full suite has not been rerun after that test correction.
+Do not claim a live-model security run or evaluation of a user-owned agent;
+neither has happened.
