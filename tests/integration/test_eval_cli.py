@@ -67,6 +67,18 @@ def test_replay_cli_creates_and_runs_case(tmp_path: Path, capsys: object) -> Non
     assert output["passed"] is True
 
 
+def test_committed_replay_artifact_matches_current_evaluator(capsys: object) -> None:
+    case_path = Path("evals/replays/search-001.json")
+
+    exit_code = main(["replay", "run", "--case", str(case_path), "--json"])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["case_id"] == "repopilot-search-001"
+    assert output["passed"] is True
+    assert output["differences"] == []
+
+
 def test_cli_reports_invalid_input_without_traceback_or_payload(tmp_path, capsys) -> None:
     dataset = tmp_path / "bad.jsonl"
     dataset.write_text('{"task":"API_KEY=private-canary"}', encoding="utf-8")

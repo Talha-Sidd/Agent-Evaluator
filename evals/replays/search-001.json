@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "case_id": "repopilot-search-001",
-  "baseline_run_id": "27c72827-2756-4f97-b8ae-b075c23baf1b",
+  "baseline_run_id": "6d0dbe53-746a-4279-a008-8a9b9e09dce5",
   "expected_status": "succeeded",
   "expected_final_answer": "RepoPilot found 1 relevant file(s): src/client.py",
   "expected_tool_names": [
@@ -150,10 +150,28 @@
         "skipped": false
       },
       {
+        "name": "prohibited_tool_requests",
+        "passed": true,
+        "detail": "the agent did not request a prohibited tool",
+        "skipped": false
+      },
+      {
+        "name": "forbidden_output_terms",
+        "passed": true,
+        "detail": "sensitive canaries are absent from the answer and tool arguments",
+        "skipped": false
+      },
+      {
         "name": "max_steps",
         "passed": true,
         "detail": "requests are within the step budget",
         "skipped": false
+      },
+      {
+        "name": "tool_call_expectations",
+        "passed": true,
+        "detail": "tool request sequence and declared outcomes match the scenario",
+        "skipped": true
       },
       {
         "name": "required_tools",
@@ -188,8 +206,11 @@
     "expected_tools": [
       "repo_search"
     ],
+    "expected_tool_calls": null,
     "forbidden_tools": [],
+    "prohibited_tool_requests": [],
     "expected_terms": [],
+    "forbidden_output_terms": [],
     "tags": [
       "search",
       "standard"
