@@ -187,11 +187,13 @@ local artifacts, not cryptographically signed evidence. They refuse replacement;
 use a new filename and review baseline changes. Full trajectory comparison remains
 the responsibility of replay. Bump `EVALUATOR_VERSION` when grading semantics change.
 
-`.github/workflows/quality.yml` runs tests, lint, type checks, evaluation, comparison
-against `evals/baselines/repopilot.json`, replay, and a package build on Linux and
-Windows. Reports are retained for 14 days. Hosted execution and required-check
-configuration still need verification; there is no automatic release or baseline
-promotion. Action usage follows the official [checkout](https://github.com/actions/checkout),
+`.github/workflows/quality.yml` separates Python checks, Linux/Windows tests,
+agent evaluation, PostgreSQL integration, and package building into named jobs.
+Evaluation compares against `evals/baselines/repopilot.json` and replays a frozen
+case. Test and evaluation reports are retained for 14 days. The previous hosted
+workflow completed successfully; this revised layout still needs a hosted run.
+There is no automatic release or baseline promotion. Action usage follows the
+official [checkout](https://github.com/actions/checkout),
 [setup-uv](https://github.com/astral-sh/setup-uv), and
 [artifact upload](https://github.com/actions/upload-artifact) documentation.
 

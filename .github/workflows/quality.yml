@@ -1,4 +1,4 @@
-name: Reliability checks
+name: Agent reliability CI
 
 on:
   push:
@@ -12,53 +12,111 @@ concurrency:
   group: reliability-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  quality:
+  code:
+    name: Python checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Python and uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: '3.12'
+          enable-cache: true
+      - name: Sync locked dependencies
+        run: uv sync --locked
+      - name: Lint Python
+        run: uv run --locked ruff check .
+      - name: Type-check source
+        run: uv run --locked mypy src
+
+  tests:
+    name: Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-    defaults:
-      run:
-        shell: bash
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: Set up Python and uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: '3.12'
           enable-cache: true
-      - run: uv sync --locked
-      - run: uv run --locked ruff check .
-      - run: uv run --locked mypy src
-      - run: uv run --locked pytest --junitxml=reports/tests.xml
-      - name: Evaluate candidate
-        id: evaluation
+      - name: Sync locked dependencies
+        run: uv sync --locked
+      - name: Run tests without PostgreSQL
+        run: >-
+          uv run --locked pytest
+          --ignore=tests/integration/test_postgres_storage.py
+          --junitxml=reports/tests.xml
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-${{ matrix.os }}
+          path: reports/tests.xml
+          retention-days: 14
+          if-no-files-found: warn
+
+  evaluation:
+    name: Agent evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Python and uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: '3.12'
+          enable-cache: true
+      - name: Sync locked dependencies
+        id: dependencies
+        run: uv sync --locked
+      - name: Create report directory
+        run: mkdir -p reports
+      - name: Evaluate current agent
         run: >-
           uv run --locked arl eval --json
           --snapshot reports/candidate.json --agent-version "$GITHUB_SHA"
           > reports/evaluation.json
-      - name: Compare against reviewed baseline
-        if: ${{ !cancelled() && steps.evaluation.outcome != 'skipped' }}
+      - name: Compare with reviewed baseline
         run: >-
           uv run --locked arl compare
           --baseline evals/baselines/repopilot.json --candidate reports/candidate.json
           --json > reports/comparison.json
-      - name: Replay frozen case
-        run: uv run --locked arl replay run --case evals/replays/search-001.json --json
-      - run: uv build
-      - name: Retain validation evidence
+      - name: Replay frozen scenario
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: >-
+          uv run --locked arl replay run --case evals/replays/search-001.json
+          --json > reports/replay.json
+      - name: Upload evaluation reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: reliability-${{ matrix.os }}
+          name: evaluation-reports
           path: reports/
           retention-days: 14
           if-no-files-found: warn
-  durable:
+
+  database:
+    name: PostgreSQL integration
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -78,13 +136,45 @@ jobs:
       ARL_DATABASE_URL: postgresql://arl:arl-test-password@localhost:5432/arl_test
       ARL_ALLOW_TEST_DB_RESET: '1'
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: Set up Python and uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: '3.12'
           enable-cache: true
-      - run: uv sync --locked
-      - run: uv run --locked arl db migrate
-      - run: uv run --locked pytest tests/integration/test_postgres_storage.py
+      - name: Sync locked dependencies
+        run: uv sync --locked
+      - name: Apply database migrations
+        run: uv run --locked arl db migrate
+      - name: Test PostgreSQL persistence
+        run: >-
+          uv run --locked pytest tests/integration/test_postgres_storage.py
+          --junitxml=reports/postgres.xml
+      - name: Upload database test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: postgres-test-results
+          path: reports/postgres.xml
+          retention-days: 14
+          if-no-files-found: warn
+
+  package:
+    name: Package build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Python and uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: '3.12'
+          enable-cache: true
+      - name: Build source and wheel distributions
+        run: uv build
