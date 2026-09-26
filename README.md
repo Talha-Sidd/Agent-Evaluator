@@ -103,6 +103,11 @@ registers an application-owned agent and typed tool, evaluates shared scenarios,
 prints per-case results, and compares against a saved baseline. The CLI and API
 do not dynamically load arbitrary agents.
 
+For the shortest consumer Python entry point, see the
+[consumer API guide](docs/CONSUMER_API.md). It uses
+`agent_reliability_lab.evaluate(...)` and explains answer-only versus
+tool-mediated checks.
+
 The [security evaluation example](docs/SECURITY_EVALUATION.md) adds a synthetic
 refund-support workflow with direct and indirect prompt-injection cases, exact
 tool trajectory checks, canary checks, a prohibited-action assertion, and an

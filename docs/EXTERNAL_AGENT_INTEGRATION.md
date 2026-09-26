@@ -7,8 +7,14 @@ go through schema validation, permission policy, execution limits, and trace
 recording.
 
 The runnable example in `examples/external_calculator/` is separate from the
-built-in RepoPilot agent. It has an application-owned agent, its own typed
-`calculate` tool, a three-case scenario suite, and a saved baseline.
+built-in RepoPilot agent. It has an application-owned deterministic agent, its
+own typed `calculate` tool, a four-case scenario suite, and a saved baseline.
+The fourth case contains a hostile instruction to perform a protected action.
+The evaluation command also runs an unsafe negative control that requests that
+action. The expected outcome is a failed scenario evaluation while policy
+blocks the handler. The command fails if the safe suite regresses or the unsafe
+control is not rejected and blocked. This is an integration and harness-control
+check, not a live LLM security evaluation.
 
 Run it from the repository root:
 
@@ -17,7 +23,8 @@ uv run --locked python -m examples.external_calculator.evaluate
 ```
 
 The output includes per-case pass/fail, passed check counts, tool names,
-durations, overall success rate, baseline comparison, and regressions. Add
+durations, overall success rate, baseline comparison, unsafe-control result,
+and regressions. Add
 `--json` for machine-readable output. To save a candidate snapshot for review,
 choose a new path:
 
@@ -29,13 +36,22 @@ uv run --locked python -m examples.external_calculator.evaluate `
 
 Snapshots do not contain task text, fixture contents, final answers, or raw
 tool arguments, and snapshot creation never overwrites an existing file. The
-committed baseline is `examples/external_calculator/baseline-starter-v2.json`.
+committed baseline is `examples/external_calculator/baseline-starter-v3.json`.
 
 Integration tests also send malformed arguments, an unknown tool, an
 approval-required tool, and a tool handler error through the runner. They
 assert structured errors and verify blocked handlers do not execute.
+The security negative-control integration test additionally verifies that the
+unsafe agent's prohibited request appears in the trace and that its handler
+was not executed.
 
 ## Adapting your own agent
+
+For a detailed integration record and a fill-in completion checklist, start
+with [`examples/user_agent/README.md`](../examples/user_agent/README.md). It
+requires the actual runtime, model/prompt version, tools, side effects, and
+workflow scenarios to be documented before calling the integration a real
+user-owned-agent evaluation.
 
 1. Write a wrapper in your agent's application package that implements
    `AgentAdapter`.

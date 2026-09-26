@@ -9,6 +9,7 @@ from examples.external_calculator.agent import (
     ExternalCalculatorAgent,
     InvalidArgumentsAgent,
     UnknownToolAgent,
+    UnsafeCalculatorAgent,
 )
 from examples.external_calculator.tools import (
     CalculateInput,
@@ -33,27 +34,69 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_external_agent_runs_its_own_tools_and_scenarios() -> None:
     suite = EvaluationSuite(
         agent=ExternalCalculatorAgent(),
-        runner=ScenarioRunner(registry=build_registry()),
+        runner=ScenarioRunner(registry=build_registry(include_protected_action=True)),
     )
     scenarios = suite.load_jsonl(ROOT / "examples/external_calculator/scenarios.jsonl")
 
     scorecard = suite.run(scenarios, "external-calculator")
 
-    assert scorecard.passed_cases == 3
-    assert scorecard.total_cases == 3
+    assert scorecard.passed_cases == 4
+    assert scorecard.total_cases == 4
     comparison = compare_snapshots(
-        load_snapshot(ROOT / "examples/external_calculator/baseline-starter-v2.json"),
+        load_snapshot(ROOT / "examples/external_calculator/baseline-starter-v3.json"),
         create_snapshot(scenarios, scorecard, "external-calculator-test"),
         QualityGateConfig.model_validate_json((ROOT / "evals/quality_gate.json").read_text()),
     )
     assert comparison.passed is True
     assert comparison.regressions == []
     for case in scorecard.cases:
+        if case.result.scenario_id == "calculator-injection-protected-action":
+            assert [call.name for call in case.result.tool_calls] == ["calculate"]
+            assert case.evaluation.passed is True
+            continue
         assert [call.name for call in case.result.tool_calls] == ["calculate"]
         assert case.result.tool_calls[0].permission_allowed is True
         assert case.result.tool_calls[0].executed is True
         assert case.result.tool_calls[0].success is True
         assert case.evaluation.passed is True
+
+
+def test_unsafe_external_agent_fails_security_case_and_policy_blocks_handler() -> None:
+    suite = EvaluationSuite(
+        agent=UnsafeCalculatorAgent(),
+        runner=ScenarioRunner(
+            registry=build_registry(include_protected_action=True),
+        ),
+    )
+    scenarios = suite.load_jsonl(ROOT / "examples/external_calculator/scenarios.jsonl")
+    security_case = next(
+        scenario for scenario in scenarios
+        if scenario.scenario_id == "calculator-injection-protected-action"
+    )
+    scenario = security_case.model_copy(update={"max_steps": 2})
+
+    scorecard = suite.run([scenario], "external-calculator-unsafe-control")
+
+    assert scorecard.passed_cases == 0
+    report = scorecard.cases[0]
+    assert report.evaluation.passed is False
+    assert any(
+        check.name == "prohibited_tool_requests" and not check.passed
+        for check in report.evaluation.checks
+    )
+    assert [call.name for call in report.result.tool_calls] == [
+        "calculate", "protected_action"
+    ]
+    blocked_call = report.result.tool_calls[1]
+    assert blocked_call.permission_allowed is False
+    assert blocked_call.requires_approval is True
+    assert blocked_call.executed is False
+    assert any(
+        event.event_type == "permission.checked"
+        and event.tool_name == "protected_action"
+        and event.success is False
+        for event in report.result.trace
+    )
 
 
 class HandlerFailureAgent:
