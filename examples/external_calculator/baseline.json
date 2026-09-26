@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "agent_version": "external-calculator-v1",
+  "evaluator_version": "starter-v1",
+  "dataset_sha256": "5d4abc21a24956da92816bdda75858fd48d8f0d3ad791770c9bd063ed187c9bc",
+  "cases": [
+    {
+      "scenario_id": "calculator-add",
+      "scenario_sha256": "8b44b0055b65cd8bc56e0bf9c0c83907de7b37c01f3e9672184bfd18a9ea881c",
+      "fixture_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "run_id": "ae0cb12f-d050-41fc-ac29-268a8f8ca59a",
+      "passed": true,
+      "failure_categories": []
+    },
+    {
+      "scenario_id": "calculator-subtract",
+      "scenario_sha256": "e4fb8fb536fbcfa3ea99067945e98cd1e6174c9600448b4847a8a231471e7e12",
+      "fixture_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "run_id": "dbf5e9ae-6f78-46c0-999d-f2f6f47b56fe",
+      "passed": true,
+      "failure_categories": []
+    },
+    {
+      "scenario_id": "calculator-multiply",
+      "scenario_sha256": "961aae904e7ac409f29f117054e61b075eeed6f3c814cffea9718e44bf9efaa0",
+      "fixture_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "run_id": "99067e63-b902-44ea-b69e-3c7c09c09cb5",
+      "passed": true,
+      "failure_categories": []
+    }
+  ],
+  "safety_checks": {
+    "medium_risk_blocked": true,
+    "high_risk_blocked": true
+  }
+}

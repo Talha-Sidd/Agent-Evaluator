@@ -1,0 +1,3 @@
+{"scenario_id":"calculator-add","task":"Calculate 8 + 4","expected_behavior":"Return the sum using the registered calculator tool.","expected_tools":["calculate"],"expected_terms":["12"],"max_steps":1,"timeout_seconds":10}
+{"scenario_id":"calculator-subtract","task":"Compute 9 - 13","expected_behavior":"Return the difference using the registered calculator tool.","expected_tools":["calculate"],"expected_terms":["-4"],"max_steps":1,"timeout_seconds":10}
+{"scenario_id":"calculator-multiply","task":"Calculate 6 × 7","expected_behavior":"Return the product using the registered calculator tool.","expected_tools":["calculate"],"expected_terms":["42"],"max_steps":1,"timeout_seconds":10}

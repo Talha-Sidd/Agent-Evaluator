@@ -107,9 +107,12 @@ the output limit, and requests `store=False`.
 Per-run token/call limits and a gateway-wide suite cost ceiling are required.
 Prices are operator supplied; totals are estimates, not provider invoices. A
 failed request with unknown billed usage keeps its full configured cost
-reservation. The command has not been run against OpenAI, so account access and
-actual billing are unverified. Task text and fixture contents from the selected
-dataset are sent to the provider; review alternate datasets before running.
+reservation. Task text and fixture contents from the selected dataset are sent
+to the provider; review alternate datasets before running. One live run on
+2026-09-26 used `gpt-4.1-mini` against the bundled ten-case suite: nine passed
+and one timed out, so the zero-regression comparison failed. Known estimated
+cost was $0.001726, with one timed-out call's usage unknown. This verifies a
+live request can run here, not repeated performance or exact billing.
 
 - [x] Use an explicit opt-in command for live provider calls.
 - [x] Run against identical versioned scenarios and fixture fingerprints.
@@ -117,9 +120,9 @@ dataset are sent to the provider; review alternate datasets before running.
 - [x] Report success, safety, trajectory, latency, usage, and estimated cost per success.
 - [x] Keep credentials in environment configuration and redact report content.
 
-**Still to verify:** run an explicitly authorized live evaluation with a usable
-API key and funded account, then review repeated measured results. Normal tests
-and CI make no provider calls.
+**Still to verify:** review repeated measured results before setting model
+quality, latency, or cost release gates. Normal tests and CI make no provider
+calls.
 
 ## Stage 3: baselines and release gates
 

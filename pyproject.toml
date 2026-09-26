@@ -34,7 +34,7 @@ line-length = 100
 src = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 testpaths = ["tests"]
 
 [tool.mypy]

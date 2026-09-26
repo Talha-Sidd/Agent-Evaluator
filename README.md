@@ -65,10 +65,13 @@ command run the model-backed agent against the same dataset and reviewed baselin
 Reports include model and prompt versions, usage, estimated cost, latency,
 trajectory, the quality gate, and per-case baseline comparisons. The parent
 enforces per-run call, token, and time limits and reserves cost against one
-suite-wide ceiling. No live request or billing result has been verified; prices
-are provided by the operator. Ordinary `arl eval` and CI remain deterministic
-and make no provider calls. See [the LLM evaluation roadmap](docs/LLM_EVALUATION_ROADMAP.md)
-for setup and limits.
+suite-wide ceiling. One live run was verified against the bundled ten-case
+suite on 2026-09-26: nine passed and one timed out, so its zero-regression
+comparison failed. Known estimated cost was $0.001726, with one timed-out call's
+usage unknown. This does not establish repeated performance or exact billing;
+prices are provided by the operator. Ordinary `arl eval` and CI remain
+deterministic and make no provider calls. See
+[the LLM evaluation roadmap](docs/LLM_EVALUATION_ROADMAP.md) for setup and limits.
 
 For PowerShell, set the key in the current session and supply a model ID,
 operator-configured input/output prices per million tokens, a suite cost ceiling,
@@ -93,6 +96,12 @@ Python callers can use `EvaluationSuite(agent=RepoPilotModel(),
 runner=ScenarioRunner(gateway=ModelGateway(provider, config)))`. Model-backed
 execution is opt-in; the CLI and API still use the deterministic agent by default.
 Configuration and a runnable fake-provider example are in the roadmap.
+
+To evaluate an agent implemented outside this package, see the runnable
+[external-agent integration example](docs/EXTERNAL_AGENT_INTEGRATION.md). It
+registers an application-owned agent and typed tool, evaluates shared scenarios,
+prints per-case results, and compares against a saved baseline. The CLI and API
+do not dynamically load arbitrary agents.
 
 ## Development
 
