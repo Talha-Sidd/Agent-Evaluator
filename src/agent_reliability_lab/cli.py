@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -22,6 +23,7 @@ from agent_reliability_lab.platform.evals.quality_gate import (
 )
 from agent_reliability_lab.platform.evals.suite import EvaluationSuite, SuiteScorecard
 from agent_reliability_lab.platform.replay import ReplayRunner
+from agent_reliability_lab.platform.storage.postgres import PostgresRunRepository, StorageError
 
 
 def _load_gate_config(path: Path) -> QualityGateConfig:
@@ -145,6 +147,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_parser = replay_subparsers.add_parser("run", help="replay a frozen case")
     run_parser.add_argument("--case", type=Path, required=True)
     run_parser.add_argument("--json", action="store_true", help="print replay result as JSON")
+    db_parser = subparsers.add_parser("db", help="manage durable evidence schema")
+    db_parser.add_argument("operation", choices=["migrate"])
     args = parser.parse_args(argv)
 
     try:
@@ -158,6 +162,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_replay_create(args.dataset, args.scenario_id, args.output, args.force)
         if args.command == "replay" and args.replay_command == "run":
             return _run_replay_case(args.case, args.json)
+        if args.command == "db" and args.operation == "migrate":
+            dsn = os.environ.get("ARL_DATABASE_URL")
+            if not dsn:
+                raise ValueError("ARL_DATABASE_URL is required")
+            PostgresRunRepository(dsn).migrate()
+            print("Database migrations applied.")
+            return 0
+    except StorageError:
+        print(json.dumps({"error": "storage_error"}), file=sys.stderr)
+        return 2
     except (OSError, ValueError, ValidationError) as exc:
         # Never print validation payloads, file contents, or arbitrary exception strings.
         code = "artifact_exists" if isinstance(exc, FileExistsError) else "invalid_input"

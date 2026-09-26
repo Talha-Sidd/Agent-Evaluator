@@ -3,7 +3,7 @@
 from typing import Any, Protocol
 from uuid import UUID
 
-from agent_reliability_lab.domain.models import AgentResult, AgentTask, TraceEvent
+from agent_reliability_lab.domain.models import AgentResult, AgentTask, StoredRun, TraceEvent
 
 
 class TraceSink(Protocol):
@@ -27,3 +27,13 @@ class ToolExecutor(Protocol):
 
     def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Request a validated and authorized action from the harness."""
+
+
+class RunRepository(Protocol):
+    """Durable evidence boundary; storage errors must be raised to the caller."""
+
+    def save(self, record: StoredRun, *, max_runs: int, max_bytes: int) -> None:
+        """Atomically retain a completed run and enforce storage limits."""
+
+    def get(self, run_id: UUID, owner: str) -> StoredRun | None:
+        """Return a copy of unexpired evidence visible to this owner."""

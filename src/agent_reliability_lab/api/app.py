@@ -8,6 +8,7 @@ import secrets
 import time
 from collections import OrderedDict
 from collections.abc import Callable, Mapping
+from datetime import UTC, datetime, timedelta
 from threading import BoundedSemaphore, Lock
 from typing import Annotated, Any
 from uuid import UUID
@@ -18,9 +19,19 @@ from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from agent_reliability_lab.agents.repopilot.demo import RepoPilotDemo
-from agent_reliability_lab.domain.models import AgentResult, Scenario
+from agent_reliability_lab.domain.models import AgentResult, EvaluationResult, Scenario, StoredRun
+from agent_reliability_lab.domain.protocols import RunRepository
+from agent_reliability_lab.platform.evals.comparison import EVALUATOR_VERSION
+from agent_reliability_lab.platform.evals.starter import StarterEvaluator
 from agent_reliability_lab.platform.runner.runner import ScenarioRunner
 from agent_reliability_lab.platform.security import public_result
+from agent_reliability_lab.platform.storage.postgres import (
+    PostgresRunRepository,
+    StorageError,
+    StorageLimitError,
+)
+
+AGENT_VERSION = "repopilot-demo-v1"
 
 
 class BodyLimitMiddleware:
@@ -91,6 +102,7 @@ class RunService:
         concurrency: int = 2,
         clock: Callable[[], float] = time.monotonic,
         runner: ScenarioRunner | None = None,
+        repository: RunRepository | None = None,
     ) -> None:
         if (
             not math.isfinite(ttl_seconds)
@@ -99,7 +111,10 @@ class RunService:
             raise ValueError("run service limits must be positive")
         self._runner = runner or ScenarioRunner()
         self._agent = RepoPilotDemo()
+        self._evaluator = StarterEvaluator()
+        self._repository = repository
         self._runs: OrderedDict[UUID, tuple[str, float, AgentResult, int]] = OrderedDict()
+        self._evaluations: dict[UUID, EvaluationResult] = {}
         self._max_runs, self._ttl, self._max_bytes = max_runs, ttl_seconds, max_bytes
         self._clock = clock
         self._bytes = 0
@@ -111,30 +126,55 @@ class RunService:
         for run_id, (_, expires, _, size) in list(self._runs.items()):
             if expires <= now:
                 del self._runs[run_id]
+                self._evaluations.pop(run_id, None)
                 self._bytes -= size
 
     def create_run(self, scenario: Scenario, owner: str) -> AgentResult:
         if not self._slots.acquire(blocking=False):
             raise HTTPException(status_code=429, detail="run capacity reached")
         try:
-            result = public_result(self._runner.run(self._agent, scenario))
+            raw_result = self._runner.run(self._agent, scenario)
+            evaluation = self._evaluator.evaluate(scenario, raw_result)
+            result = public_result(raw_result)
             size = len(result.model_dump_json().encode())
             if size > min(self._max_bytes, 1024 * 1024):
                 raise HTTPException(status_code=413, detail="result exceeds retention limit")
+            if self._repository is not None:
+                now = datetime.now(UTC)
+                record = StoredRun(
+                    owner=owner, result=result, evaluation=evaluation,
+                    agent_version=AGENT_VERSION, evaluator_version=EVALUATOR_VERSION,
+                    created_at=now, expires_at=now + timedelta(seconds=self._ttl),
+                )
+                try:
+                    self._repository.save(record, max_runs=self._max_runs, max_bytes=self._max_bytes)
+                except StorageLimitError:
+                    raise HTTPException(status_code=413, detail="result exceeds retention limit") from None
+                except StorageError:
+                    raise HTTPException(status_code=503, detail="run storage unavailable") from None
+                return result.model_copy(deep=True)
             with self._lock:
                 self._expire()
                 while self._runs and (
                     len(self._runs) >= self._max_runs or self._bytes + size > self._max_bytes
                 ):
-                    _, (_, _, _, removed_size) = self._runs.popitem(last=False)
+                    removed_id, (_, _, _, removed_size) = self._runs.popitem(last=False)
+                    self._evaluations.pop(removed_id, None)
                     self._bytes -= removed_size
                 self._runs[result.run_id] = (owner, self._clock() + self._ttl, result, size)
+                self._evaluations[result.run_id] = evaluation
                 self._bytes += size
             return result.model_copy(deep=True)
         finally:
             self._slots.release()
 
     def get_run(self, run_id: UUID, owner: str) -> AgentResult | None:
+        if self._repository is not None:
+            try:
+                record = self._repository.get(run_id, owner)
+            except StorageError:
+                raise HTTPException(status_code=503, detail="run storage unavailable") from None
+            return record.result.model_copy(deep=True) if record is not None else None
         with self._lock:
             self._expire()
             stored = self._runs.get(run_id)
@@ -142,13 +182,30 @@ class RunService:
                 return None
             return stored[2].model_copy(deep=True)
 
+    def get_evaluation(self, run_id: UUID, owner: str) -> EvaluationResult | None:
+        if self._repository is not None:
+            try:
+                record = self._repository.get(run_id, owner)
+            except StorageError:
+                raise HTTPException(status_code=503, detail="run storage unavailable") from None
+            return record.evaluation.model_copy(deep=True) if record is not None else None
+        with self._lock:
+            self._expire()
+            stored = self._runs.get(run_id)
+            if stored is None or stored[0] != owner:
+                return None
+            return self._evaluations[run_id].model_copy(deep=True)
+
 
 def create_app(
     service: RunService | None = None,
     *,
     api_tokens: Mapping[str, str] | None = None,
 ) -> FastAPI:
-    run_service = service or RunService()
+    run_service = service or RunService(
+        repository=PostgresRunRepository(os.environ["ARL_DATABASE_URL"])
+        if os.environ.get("ARL_DATABASE_URL") else None
+    )
     if api_tokens is None:
         try:
             value: Any = json.loads(os.environ.get("ARL_API_TOKENS", "{}"))
@@ -157,7 +214,8 @@ def create_app(
     else:
         value = dict(api_tokens)
     if not isinstance(value, dict) or any(
-        not isinstance(token, str) or len(token) < 32 or not isinstance(owner, str) or not owner
+        not isinstance(token, str) or len(token) < 32 or not isinstance(owner, str)
+        or not owner or len(owner) > 256
         for token, owner in value.items()
     ):
         raise ValueError("API tokens must be at least 32 characters and map to nonempty owners")
@@ -195,6 +253,15 @@ def create_app(
         if result is None:
             raise HTTPException(status_code=404, detail="run not found")
         return result
+
+    @app.get("/runs/{run_id}/evaluation", response_model=EvaluationResult)
+    def get_evaluation(
+        run_id: UUID, owner: Annotated[str, Depends(authenticate)]
+    ) -> EvaluationResult:
+        evaluation = run_service.get_evaluation(run_id, owner)
+        if evaluation is None:
+            raise HTTPException(status_code=404, detail="run not found")
+        return evaluation
 
     return app
 

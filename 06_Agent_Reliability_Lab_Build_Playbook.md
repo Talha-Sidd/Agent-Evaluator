@@ -12,11 +12,13 @@
 ## Implementation checkpoint - 2026-09-26
 
 Checked items below indicate implemented capabilities, not completion of the
-entire suggested stack. RepoPilot is the actual demo agent. Storage is in-memory
-or JSON files; no database is implemented. Graders verify search outputs, not a
-mutable external environment. Model events, measured cost/latency gates, UI, and
-approval/resume remain future work. CI is configured but hosted execution has
-not yet been observed. Nightly scheduling remains deferred.
+entire suggested stack. RepoPilot is the actual demo agent. API storage is
+in-memory by default, with optional PostgreSQL storage and explicit migrations.
+PostgreSQL migration and restart tests passed against a disposable local server.
+Graders verify search outputs, not a mutable external environment. Model events,
+measured cost/latency gates, UI, and approval/resume remain future work. CI is
+configured but hosted execution has not yet been observed. Nightly scheduling
+remains deferred.
 
 See [BUILD_STATUS.md](docs/BUILD_STATUS.md) for verified results and
 [TODO.md](docs/TODO.md) for the current ordered batches and acceptance criteria.
@@ -556,4 +558,3 @@ Deployment checklist:
 - [LangGraph human-in-the-loop](https://docs.langchain.com/oss/python/langchain/human-in-the-loop)
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 - [NIST Generative AI Risk Management Profile](https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-generative-artificial-intelligence)
-

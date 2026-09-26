@@ -263,3 +263,25 @@ class AgentResult(BaseModel):
     trace: list[TraceEvent] = Field(default_factory=list)
     error: str | None = None
     error_code: ErrorCode | None = None
+
+
+class StoredRun(BaseModel):
+    """Storage-neutral, owner-scoped evidence for one completed run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    owner: str = Field(min_length=1, max_length=256)
+    result: AgentResult
+    evaluation: EvaluationResult
+    agent_version: str = Field(min_length=1, max_length=128)
+    evaluator_version: str = Field(min_length=1, max_length=128)
+    created_at: datetime
+    expires_at: datetime
+
+    @model_validator(mode="after")
+    def consistent(self) -> Self:
+        if self.evaluation.scenario_id != self.result.scenario_id:
+            raise ValueError("evaluation does not match run scenario")
+        if self.expires_at <= self.created_at:
+            raise ValueError("expiry must follow creation")
+        return self
